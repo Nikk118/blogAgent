@@ -1,7 +1,8 @@
 from __future__ import annotations
+from pathlib import Path
 from langchain_core.prompts import PromptTemplate
 import operator
-from typing import Literal, TypedDict,List,Annotated
+from typing import Literal, Optional, TypedDict,List,Annotated
 from pydantic import BaseModel,Field
 from langgraph.graph import StateGraph,END,START
 from langchain_core.messages import SystemMessage,HumanMessage 
@@ -11,6 +12,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langgraph.types import Send
 import os
 import time
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 
 load_dotenv()
@@ -41,38 +43,59 @@ class Task(BaseModel):
         ...,
         description="Target word count for this section (120–450).",
     )
-
-    section_type: Literal[
-        "intro",
-        "core",
-        "examples",
-        "checklist",
-        "common_mistakes",
-        "conclusion",
-    ] = Field(
-        ...,
-        description="Use 'common_mistakes' exactly once in the plan.",
-    )
+    section_type: str = "core"
+    tags:List[str]=Field(default_factory=list)
+    requires_research:bool=False
+    require_citations:bool=False
+    require_code:bool=False
 
 class Plan(BaseModel):
     blog_title:str
     audience:str=Field(...,description="The target audience for the blog post")
     tone:str=Field(...,description="The desired tone of the blog post, e.g., formal, casual, humorous")
+    blog_kind:Literal["explainer","tutorial","news_roundup","comparison","system_design"]="explainer"
+    constraints:List[str]=Field(default_factory=list)
     tasks:List[Task]
+
+
+
+class EvidenceItem(BaseModel):
+    title:str
+    url:str
+    published_at:Optional[str]=None
+    snippet:Optional[str]=None
+    source:Optional[str]=None
+
+class RouterDescion(BaseModel):
+    needs_research:bool=False
+    mode:Literal["closed_book","hybrid","open_book"]
+    queries:List[str]=Field(default_factory=list)
+
+class EvedencePack(BaseModel):
+    evidence:List[EvidenceItem]=Field(default_factory=list)
 
 class State(TypedDict):
     topic:str
-    plan:Plan
-    sections:Annotated[List[str],operator.add]
+    # router:RouterDescion
+    mode:str
+    needs_research:bool
+    queries:List[str]
+    evidence:List[EvedencePack]
+    plan:Optional[Plan]=None
+
+    # workers
+    sections:Annotated[List[tuple[int,str]],operator.add]
     final:str
 
 
 plan_parser=PydanticOutputParser(pydantic_object=Plan)
+router_parser=PydanticOutputParser(pydantic_object=RouterDescion)
+research_parser=PydanticOutputParser(pydantic_object=EvedencePack)
 
 
 
-def orachestrator(state: State) -> dict:
-    system_prompt = """
+# prompts
+system_prompt = """
 You are a senior technical writer and developer advocate.
 
 Your task is to generate a highly actionable, deeply technical outline for a developer-focused blog post. The output will be used to automatically generate a full blog, so precision and structure are critical.
@@ -132,24 +155,51 @@ Do not include explanations, markdown, or extra text.
 {format_instructions}
 """
 
-    messages = [
-        SystemMessage(content=system_prompt.format(
-            format_instructions=plan_parser.get_format_instructions()
-        )),
-        HumanMessage(content=f"Topic: {state['topic']}")
-    ]
 
-    response = llm.invoke(messages)
 
-    # 🔥 Debug (important while building)
-    print("RAW PLAN RESPONSE:\n", response.content)
+ROUTER_SYSTEM = """You are a routing module for a technical blog planner.
 
-    plan = plan_parser.parse(response.content)
+Decide whether web research is needed BEFORE planning.
 
-    return {"plan": plan, "sections": []}
-def fanout(state:State):
-    return [Send("worker",{"task":task,"topic":state["topic"],"plan":state["plan"]}) for task in state["plan"].tasks]
+Modes:
+- closed_book (needs_research=false):
+  Evergreen topics where correctness does not depend on recent facts (concepts, fundamentals).
+- hybrid (needs_research=true):
+  Mostly evergreen but needs up-to-date examples/tools/models to be useful.
+- open_book (needs_research=true):
+  Mostly volatile: weekly roundups, "this week", "latest", rankings, pricing, policy/regulation.
 
+If needs_research=true:
+- Output 3–10 high-signal queries.
+- Queries should be scoped and specific (avoid generic queries like just "AI" or "LLM").
+- If user asked for "last week/this week/latest", reflect that constraint IN THE QUERIES.
+
+OUTPUT:
+Return ONLY valid JSON.
+Do not include explanations, markdown, or extra text.
+
+{format_instructions}
+"""
+
+RESEARCH_SYSTEM = """You are a research synthesizer for technical writing.
+
+Given raw web search results, produce a deduplicated list of EvidenceItem objects.
+
+Rules:
+- Only include items with a non-empty url.
+- Prefer relevant + authoritative sources (company blogs, docs, reputable outlets).
+- If a published date is explicitly present in the result payload, keep it as YYYY-MM-DD.
+- If missing or unclear, set published_at=null. DO NOT guess.
+- Keep snippets short.
+- Deduplicate by URL.
+
+OUTPUT:
+Return ONLY valid JSON.
+Do not include explanations, markdown, or extra text.
+The output MUST be a JSON object with a single key "evidence" containing a list of objects.
+
+{format_instructions}
+"""
 worker_prompt = """You are a senior technical writer and developer advocate. Write ONE section of a technical blog post.
 
 Hard constraints:
@@ -176,13 +226,148 @@ Markdown style:
 - If you include code, keep it focused on the bullet being addressed.
 """
 
+
+
+def _tavily_search(query:str,max_results:int=5)->List[dict]:
+    tool=TavilySearchResults(max_results=max_results)
+    try:
+        results=tool.invoke({"query":query})
+    except Exception as e:
+        print(f"Tavily search error for query '{query}': {e}")
+        return []
+
+    normalized:List[dict]=[]
+    for r in results or []:
+        normalized.append(
+            {
+                "title": r.get("title", ""),
+                "url": r.get("url", ""),
+                "snippet": r.get("content", r.get("snippet", "")),
+                "published_at": r.get("published_at"),
+                "source": r.get("source")
+            }
+        ) 
+    return normalized
+
+
+def router_node(state:State)->dict:
+    topic=state["topic"]
+    decision_obj = router_parser.parse(llm.invoke([
+        SystemMessage(content=ROUTER_SYSTEM.format(format_instructions=router_parser.get_format_instructions())),
+        HumanMessage(content=f"Topic: {topic}")
+    ]).content)
+
+    return {
+        "needs_research": decision_obj.needs_research,
+        "mode": decision_obj.mode,
+        "queries": decision_obj.queries
+    }
+
+
+def route_next(state:State)->str:
+    return "research" if state["needs_research"] else "orachestrator"
+
+
+def research_node(state:State)->dict:
+    queries=state["queries"]
+    max_results=6
+    raw_results:List[dict]=[]
+
+    for q in queries:
+        raw_results.extend(_tavily_search(q,max_results=max_results))
+
+    if not raw_results:
+        return {"evidence":[]}
+
+    pack_content = llm.invoke([
+        SystemMessage(content=RESEARCH_SYSTEM.format(format_instructions=research_parser.get_format_instructions())),
+        HumanMessage(content=f"Raw results:\n{raw_results}")
+    ]).content
+    
+    # Clean possible markdown wrap from the response if the LLM adds it anyway
+    cleaned_content = pack_content.strip()
+    if cleaned_content.startswith("```json"):
+        cleaned_content = cleaned_content.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif cleaned_content.startswith("```"):
+        cleaned_content = cleaned_content.split("```", 1)[1].split("```", 1)[0].strip()
+
+    import json
+    try:
+        data = json.loads(cleaned_content)
+        # If the LLM returned a list instead of an object with "evidence" key
+        if isinstance(data, list):
+            data = {"evidence": data}
+        # Filter out empty or invalid evidence items
+        filtered_evidence = [e for e in data.get("evidence", []) if e.get("title") and e.get("url")]
+        data["evidence"] = filtered_evidence
+        pack = EvedencePack(**data)
+    except Exception:
+        # Fallback to the parser which might handle the parsing error with a re-try prompt or more context
+        pack = research_parser.parse(pack_content)
+
+    return {"evidence": [pack]}
+
+def orachestrator(state: State) -> dict:
+    evidence_packs = state.get("evidence", [])
+    all_evidence = []
+    for pack in evidence_packs:
+        all_evidence.extend(pack.evidence)
+        
+    mode = state.get("mode", "closed_book")
+    messages = [
+        SystemMessage(content=system_prompt.format(
+            format_instructions=plan_parser.get_format_instructions()
+        )),
+        HumanMessage(content=(
+            f"Topic: {state['topic']}\n"
+            f"Mode: {mode}\n\n"
+            f"Evidence(ONLY use for fresh claims:may be empty):\n"
+            f"{[e.model_dump() for e in all_evidence][:16]}"
+        ))
+    ]
+
+    response = llm.invoke(messages)
+    print("RAW PLAN RESPONSE:\n", response.content)
+
+    # Strip markdown fences if present
+    cleaned = response.content.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif cleaned.startswith("```"):
+        cleaned = cleaned.split("```", 1)[1].split("```", 1)[0].strip()
+
+    plan = plan_parser.parse(cleaned)
+
+    return {"plan": plan, "sections": []}
+
+def fanout(state:State):
+    evidence_packs=state.get("evidence",[])
+    all_evidence = []
+    for pack in evidence_packs:
+        all_evidence.extend(pack.evidence)
+        
+    return [Send("worker",{
+        "task":task,
+        "topic":state["topic"],
+        "mode":state["mode"],
+        "plan":state["plan"],
+        "evidence":[e.model_dump() for e in all_evidence],
+        }) for task in state["plan"].tasks]
+
+
 def worker(payload:dict):
     task=payload["task"]
     topic=payload["topic"]
     plan=payload["plan"]
-
-    blog_title=plan.blog_title
+    evidence=[EvidenceItem(**e) for e in payload.get("evidence",[])] 
+    mode=payload.get("mode","closed_book")
     bullets_text = "\n".join(f"- {b}" for b in task.bullets)
+    evidence_text=""
+    if evidence:
+        evidence_text="\n".join(
+            f"-{e.title}|{e.url}|{e.published_at or 'date:unknown'}".strip() for e in evidence[:20]
+        )
+    
     # Implement a simple retry for 503 errors
     for attempt in range(3):
         try:
@@ -194,19 +379,27 @@ def worker(payload:dict):
 Audience: {plan.audience}
 Tone: {plan.tone}
 Topic: {topic}
-
+Blog kind:{plan.blog_kind}
+Mode: {mode}
+Evidence:(ONLY use these URLs when citing):\n
+{evidence_text}\n
+Target words: {task.target_words}
+Constraints: {plan.constraints}
+Tags: {task.tags}
+Requires research: {task.requires_research}
+Require citations: {task.require_citations}
+Require code: {task.require_code}
 Section: {task.title}
 Section type: {task.section_type}
 Goal: {task.goal}
 Target words: {task.target_words}
-
 Bullets:
 {bullets_text}
 """
 )    
             ]
             ).content.strip()
-            return {"sections":[section_md]}
+            return {"sections":[(task.id,section_md)]}
         except Exception as e:
             if "503" in str(e) and attempt < 2:
                 time.sleep(2 ** attempt)  # Exponential backoff
@@ -215,20 +408,27 @@ Bullets:
 
     return {"sections":[]}
 
-from pathlib import Path
 
 def reducer(state:State)->dict:
-    title=state["plan"].blog_title
-    sections = state.get("sections", [])
-    print(f"DEBUG: Title='{title}', Sections count={len(sections)}")
+    plan=state["plan"]
+    # Check if sections exist and handle potential empty list
+    sections_list = state.get("sections", [])
+    if not sections_list:
+        print("DEBUG: No sections found in state!")
+        return {"final": ""}
     
-    body="\n\n".join(sections).strip()
-    final_md=f"# {title}\n\n{body}\n"
+    # Sort and extract markdown content
+    ordered_sections=[md for _, md in sorted(sections_list, key=lambda x: x[0])]
+    body="\n\n".join(ordered_sections).strip()
+    final_md=f"# {plan.blog_title}\n\n{body}\n"
     
-    # Clean filename of illegal characters like ':'
-    safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "_")).strip()
-    filename = safe_title.lower().replace(" ", "_") + ".md"
-    print(f"DEBUG: Filename='{filename}'")
+    # Sanitize filename: remove illegal chars like : \ / * ? " < > |
+    import re
+    safe_title = re.sub(r'[<>:"/\\|?*]', '', plan.blog_title)
+    filename = f"{safe_title.strip().replace(' ', '_').lower()}.md"
+    
+    print(f"DEBUG: Title='{plan.blog_title}', Sections count={len(sections_list)}")
+    print(f"DEBUG: Writing to filename='{filename}'")
     
     output_path=Path(filename)
     output_path.write_text(final_md,encoding="utf-8")
@@ -236,16 +436,34 @@ def reducer(state:State)->dict:
 
 
 g=StateGraph(State)
+g.add_node("router",router_node)
+g.add_node("research",research_node)
 g.add_node("orachestrator",orachestrator)
 g.add_node("worker",worker)
 g.add_node("reducer",reducer)
 
-g.add_edge(START,"orachestrator")
+g.add_edge(START,"router")
+g.add_conditional_edges("router",route_next,{"research":"research","orachestrator":"orachestrator"})
+g.add_edge("research", "orachestrator")
 g.add_conditional_edges("orachestrator", fanout, ["worker"])
 g.add_edge("worker", "reducer")
 g.add_edge("reducer", END)
 
 app=g.compile()
 
-out=app.invoke({"topic":"write a blog on self attention"})
+def run(topic:str):
+    out=app.invoke({
+        "topic":topic,
+        "mode":"",
+        "needs_research":False,
+        "queries":[],
+        "evidence":[],
+        "plan":None,
+        "sections":[],
+        "final":"",
+    })
 
+    return out
+
+
+run("wirte a blog on stock marcket in 2026")
