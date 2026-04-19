@@ -22,7 +22,6 @@ llm = ChatMistralAI(
     temperature=0.7
 )
 
-
 class Task(BaseModel):
     id: int
     title: str
@@ -74,6 +73,35 @@ class RouterDescion(BaseModel):
 class EvedencePack(BaseModel):
     evidence:List[EvidenceItem]=Field(default_factory=list)
 
+
+from pydantic import field_validator
+
+class ImageSpec(BaseModel):
+    placeholder: str
+    filename: str
+    alt: str
+    caption: str
+    prompt: str
+    size: Literal["1024x1024", "2048x1536", "1536x1024"] = "1024x1024"
+    quality: Literal["low", "high", "medium"] = "medium"
+
+    @field_validator("size", mode="before")
+    @classmethod
+    def coerce_size(cls, v):
+        valid = {"1024x1024", "2048x1536", "1536x1024"}
+        return v if v in valid else "1024x1024"
+
+    @field_validator("quality", mode="before")
+    @classmethod
+    def coerce_quality(cls, v):
+        valid = {"low", "medium", "high"}
+        return v if v in valid else "medium"
+class GlobalImagePlan(BaseModel):
+    md_with_placeholders:str
+    images:List[ImageSpec]=Field(default_factory=list)
+
+
+
 class State(TypedDict):
     topic:str
     # router:RouterDescion
@@ -85,12 +113,20 @@ class State(TypedDict):
 
     # workers
     sections:Annotated[List[tuple[int,str]],operator.add]
+    # reducer
+    merged_md:str
+    md_with_placeholders:str
+    image_specs:List[dict]
+
     final:str
+
+
 
 
 plan_parser=PydanticOutputParser(pydantic_object=Plan)
 router_parser=PydanticOutputParser(pydantic_object=RouterDescion)
 research_parser=PydanticOutputParser(pydantic_object=EvedencePack)
+decide_image_parser=PydanticOutputParser(pydantic_object=GlobalImagePlan)
 
 
 
@@ -409,38 +445,208 @@ Bullets:
     return {"sections":[]}
 
 
-def reducer(state:State)->dict:
+
+
+# =====================
+# reducrerWithImage
+# =====================
+def merge_content(state:State)->dict:
     plan=state["plan"]
-    # Check if sections exist and handle potential empty list
-    sections_list = state.get("sections", [])
-    if not sections_list:
-        print("DEBUG: No sections found in state!")
-        return {"final": ""}
-    
-    # Sort and extract markdown content
-    ordered_sections=[md for _, md in sorted(sections_list, key=lambda x: x[0])]
+    ordered_sections=[md for _, md in sorted(state["sections"], key=lambda x: x[0])]
     body="\n\n".join(ordered_sections).strip()
-    final_md=f"# {plan.blog_title}\n\n{body}\n"
-    
+    merged_md=f"#{plan.blog_title}\n\n{body}\n"
+    return {"merged_md":merged_md}
+
+DECIDE_IMAGES_SYSTEM = """You are a technical editor. Return ONLY a JSON object, no markdown, no explanation.
+
+Given a blog post in markdown, you must:
+1. Decide where 1-3 technical diagrams would help understanding
+2. Insert placeholders [[IMAGE_1]], [[IMAGE_2]], [[IMAGE_3]] into the markdown
+3. Describe each image
+
+Return this exact JSON structure:
+{{
+  "md_with_placeholders": "<the full markdown with [[IMAGE_N]] tags inserted>",
+  "images": [
+    {{
+      "placeholder": "[[IMAGE_1]]",
+      "filename": "diagram1.png",
+      "alt": "description of image",
+      "caption": "Figure 1: caption text",
+      "prompt": "detailed prompt to generate this diagram",
+      "size": "1024x1024",
+      "quality": "medium"
+    }}
+  ]
+}}
+
+If no images are needed, return:
+{{
+  "md_with_placeholders": "<original markdown unchanged>",
+  "images": []
+}}
+IMPORTANT: The "size" field must be EXACTLY one of: "1024x1024", "2048x1536", "1536x1024".
+The "quality" field must be EXACTLY one of: "low", "medium", "high".
+Do not use any other values.
+"""
+def decide_images(state: State) -> dict:
+    merged_md = state["merged_md"]
+    plan = state["plan"]
+    assert plan is not None
+
+    response = llm.invoke([
+        SystemMessage(content=DECIDE_IMAGES_SYSTEM),
+        HumanMessage(content=(
+            f"Blog: {plan.blog_title}\n"
+            f"Topic: {state['topic']}\n\n"
+            "Return a JSON object with 'md_with_placeholders' (full markdown with [[IMAGE_N]] inserted) "
+            "and 'images' (list of image specs). Do NOT return bullet points or plain text.\n\n"
+            f"{merged_md}"
+        ))
+    ])
+
+    cleaned = response.content.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif cleaned.startswith("```"):
+        cleaned = cleaned.split("```", 1)[1].split("```", 1)[0].strip()
+
+    # Fallback: if the LLM still returns garbage, skip images entirely
+    try:
+        image_plan = decide_image_parser.parse(cleaned)
+    except Exception as e:
+        print(f"[decide_images] parse failed ({e}), skipping images.")
+        return {
+            "md_with_placeholders": merged_md,
+            "image_specs": []
+        }
+
+    return {
+        "md_with_placeholders": image_plan.md_with_placeholders,
+        "image_specs": [img.model_dump() for img in image_plan.images]
+    }
+def _gemini_generate_image_bytes(prompt: str) -> bytes:
+    """
+    Returns raw image bytes generated by Gemini.
+    Requires: pip install google-genai
+    Env var: GOOGLE_API_KEY
+    """
+
+    from google import genai
+    from google.genai import types
+
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY is not set.")
+
+    client = genai.Client(api_key=api_key)
+
+    resp = client.models.generate_content(
+        model="gemini-2.5-flash-image",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            safety_settings=[
+                types.SafetySetting(
+                    category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold="BLOCK_ONLY_HIGH",
+                )
+            ],
+        ),
+    )
+
+    # Depending on SDK version, parts may hang off resp.candidates[0].content.parts
+    parts = getattr(resp, "parts", None)
+    if not parts and getattr(resp, "candidates", None):
+        try:
+            parts = resp.candidates[0].content.parts
+        except Exception:
+            parts = None
+
+    if not parts:
+        raise RuntimeError("No image content returned (safety/quota/SDK change).")
+
+    for part in parts:
+        inline = getattr(part, "inline_data", None)
+        if inline and getattr(inline, "data", None):
+            return inline.data
+
+    raise RuntimeError("No inline image bytes found in response.")
+
+
+def generate_andplace_image(state: State) -> dict:
+    plan = state["plan"]
+    assert plan is not None
+
+    # FIX: proper fallback — get md_with_placeholders, fall back to merged_md
+    md = state.get("md_with_placeholders") or state.get("merged_md", "")
+
+    image_specs = state.get("image_specs") or []
+
     # Sanitize filename: remove illegal chars like : \ / * ? " < > |
     import re
     safe_title = re.sub(r'[<>:"/\\|?*]', '', plan.blog_title)
-    filename = f"{safe_title.strip().replace(' ', '_').lower()}.md"
-    
-    print(f"DEBUG: Title='{plan.blog_title}', Sections count={len(sections_list)}")
-    print(f"DEBUG: Writing to filename='{filename}'")
-    
-    output_path=Path(filename)
-    output_path.write_text(final_md,encoding="utf-8")
-    return {"final":final_md}       
+    blog_filename = f"{safe_title.strip().replace(' ', '_').lower()}.md"
+
+    if not image_specs:
+        Path(blog_filename).write_text(md, encoding="utf-8")
+        return {"final": md}
+
+    images_dir = Path("images")
+    images_dir.mkdir(exist_ok=True)
+
+    for spec in image_specs:
+        placeholder = spec["placeholder"]
+        filename = spec["filename"]
+        out_path = images_dir / filename
+
+        if not out_path.exists():
+            try:
+                img_bytes = _gemini_generate_image_bytes(spec["prompt"])
+                out_path.write_bytes(img_bytes)
+            except Exception as e:
+                prompt_block = (
+                    f"> **IMAGE GENERATION FAILED** {spec.get('caption', '')}\n>\n"
+                    f"> **ALT:** {spec.get('alt', '')}\n>\n"
+                    f"> **PROMPT:** {spec['prompt']}\n>\n"
+                    f"> **ERROR:** {e}\n>\n"
+                )
+                md = md.replace(placeholder, prompt_block)
+                continue  # skip the img_md replacement below
+
+        img_md = f"![{spec['alt']}](images/{filename})\n*{spec['caption']}*"
+        md = md.replace(placeholder, img_md)
+
+    Path(blog_filename).write_text(md, encoding="utf-8")
+    return {"final": md}
+        
+# ==============
+# reducer sub graph
+# ==============
+
+reducer_graph=StateGraph(State)
+reducer_graph.add_node("merge_content",merge_content)
+reducer_graph.add_node("decide_images",decide_images)
+reducer_graph.add_node("generate_andplace_image",generate_andplace_image)
+
+reducer_graph.add_edge(START,"merge_content")
+reducer_graph.add_edge("merge_content","decide_images")
+reducer_graph.add_edge("decide_images","generate_andplace_image")
+reducer_graph.add_edge("generate_andplace_image",END)
+
+reducer_subgraph=reducer_graph.compile()
 
 
+
+# ==========
+# main graph
+# ==========
 g=StateGraph(State)
 g.add_node("router",router_node)
 g.add_node("research",research_node)
 g.add_node("orachestrator",orachestrator)
 g.add_node("worker",worker)
-g.add_node("reducer",reducer)
+g.add_node("reducer",reducer_subgraph)
 
 g.add_edge(START,"router")
 g.add_conditional_edges("router",route_next,{"research":"research","orachestrator":"orachestrator"})
@@ -466,4 +672,4 @@ def run(topic:str):
     return out
 
 
-run("wirte a blog on stock marcket in 2026")
+run("Self attention in transfoermer architecture")
