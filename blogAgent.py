@@ -12,6 +12,8 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langgraph.types import Send
 import os
 import time
+import re
+from urllib.parse import urlparse
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 
@@ -44,9 +46,9 @@ class Task(BaseModel):
     )
     section_type: str = "core"
     tags:List[str]=Field(default_factory=list)
-    requires_research:bool=False
-    require_citations:bool=False
-    require_code:bool=False
+    requires_research:bool=Field(..., description="True if section needs external info or research")
+    require_citations:bool=Field(..., description="True if claims need references or sources")
+    require_code:bool=Field(..., description="True if section includes code examples")
 
 class Plan(BaseModel):
     blog_title:str
@@ -147,6 +149,11 @@ HARD REQUIREMENTS:
   3. bullets: 3 to 5 concrete, specific, non-overlapping action points
   4. target_words: integer between 120 and 450
   5. section_type: one of ["intro", "core", "examples", "checklist", "common_mistakes", "conclusion"]
+- For EACH section:
+    - Set requires_research = true if external data, tools, or recent info is needed
+    - Set require_citations = true if any claims should be backed by sources
+    - Set require_code = true if code examples or implementation are included
+- IMPORTANT: These fields are REQUIRED and must not be omitted.
 
 - Include EXACTLY ONE section where section_type = "common_mistakes".
 
@@ -280,10 +287,44 @@ def _tavily_search(query:str,max_results:int=5)->List[dict]:
                 "url": r.get("url", ""),
                 "snippet": r.get("content", r.get("snippet", "")),
                 "published_at": r.get("published_at"),
-                "source": r.get("source")
+                "source": extract_source(r.get("url", ""))
             }
         ) 
     return normalized
+
+
+def extract_source(url: str) -> str:
+    try:
+        return urlparse(str(url)).netloc.replace("www.", "")
+    except Exception:
+        return ""
+
+
+def _normalize_published_at(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    text = str(value).strip()
+    m = re.search(r"\b\d{4}-\d{2}-\d{2}\b", text)
+    return m.group(0) if m else None
+
+
+def _build_evidence_pack_from_results(results: List[dict]) -> EvedencePack:
+    dedup: dict[str, dict] = {}
+    for item in results or []:
+        url = str(item.get("url", "")).strip()
+        if not url:
+            continue
+        if url in dedup:
+            continue
+        dedup[url] = {
+            "title": str(item.get("title", "")).strip() or url,
+            "url": url,
+            "snippet": str(item.get("snippet", "")).strip() or None,
+            "published_at": _normalize_published_at(item.get("published_at")),
+            "source": str(item.get("source") or extract_source(item.get("url", ""))).strip(),
+        }
+
+    return EvedencePack(evidence=[EvidenceItem(**v) for v in dedup.values()])
 
 
 def router_node(state:State)->dict:
@@ -333,13 +374,10 @@ def research_node(state:State)->dict:
         # If the LLM returned a list instead of an object with "evidence" key
         if isinstance(data, list):
             data = {"evidence": data}
-        # Filter out empty or invalid evidence items
-        filtered_evidence = [e for e in data.get("evidence", []) if e.get("title") and e.get("url")]
-        data["evidence"] = filtered_evidence
-        pack = EvedencePack(**data)
+        pack = _build_evidence_pack_from_results(data.get("evidence", []))
     except Exception:
-        # Fallback to the parser which might handle the parsing error with a re-try prompt or more context
-        pack = research_parser.parse(pack_content)
+        # Deterministic fallback when LLM JSON is malformed (prevents OUTPUT_PARSING_FAILURE)
+        pack = _build_evidence_pack_from_results(raw_results)
 
     return {"evidence": [pack]}
 
@@ -357,8 +395,9 @@ def orachestrator(state: State) -> dict:
         HumanMessage(content=(
             f"Topic: {state['topic']}\n"
             f"Mode: {mode}\n\n"
-            f"Evidence(ONLY use for fresh claims:may be empty):\n"
-            f"{[e.model_dump() for e in all_evidence][:16]}"
+            "Evidence (use this to decide if sections require research, citations, or external references):\n"
+            f"{[e.model_dump() for e in all_evidence][:16]}\n\n"
+            "If evidence is provided, mark relevant sections with requires_research=true and require_citations=true."
         ))
     ]
 
@@ -373,6 +412,11 @@ def orachestrator(state: State) -> dict:
         cleaned = cleaned.split("```", 1)[1].split("```", 1)[0].strip()
 
     plan = plan_parser.parse(cleaned)
+
+    # Safety net: if evidence exists but LLM missed flags, force at least one research-backed section.
+    if all_evidence and plan.tasks and not any(t.requires_research for t in plan.tasks):
+        plan.tasks[0].requires_research = True
+        plan.tasks[0].require_citations = True
 
     return {"plan": plan, "sections": []}
 
@@ -573,27 +617,31 @@ def _gemini_generate_image_bytes(prompt: str) -> bytes:
 
     raise RuntimeError("No inline image bytes found in response.")
 
-
 def generate_andplace_image(state: State) -> dict:
     plan = state["plan"]
     assert plan is not None
 
-    # FIX: proper fallback — get md_with_placeholders, fall back to merged_md
     md = state.get("md_with_placeholders") or state.get("merged_md", "")
-
     image_specs = state.get("image_specs") or []
 
-    # Sanitize filename: remove illegal chars like : \ / * ? " < > |
-    import re
+    # ✅ create output folder
+    output_dir = Path("generated_blogs")
+    output_dir.mkdir(exist_ok=True)
+
+    # sanitize filename
     safe_title = re.sub(r'[<>:"/\\|?*]', '', plan.blog_title)
     blog_filename = f"{safe_title.strip().replace(' ', '_').lower()}.md"
 
-    if not image_specs:
-        Path(blog_filename).write_text(md, encoding="utf-8")
-        return {"final": md}
+    blog_path = output_dir / blog_filename
 
-    images_dir = Path("images")
+    # ✅ images folder inside generated_blogs
+    images_dir = output_dir / "images"
     images_dir.mkdir(exist_ok=True)
+
+    # --- if no images ---
+    if not image_specs:
+        blog_path.write_text(md, encoding="utf-8")
+        return {"final": md}
 
     for spec in image_specs:
         placeholder = spec["placeholder"]
@@ -612,14 +660,16 @@ def generate_andplace_image(state: State) -> dict:
                     f"> **ERROR:** {e}\n>\n"
                 )
                 md = md.replace(placeholder, prompt_block)
-                continue  # skip the img_md replacement below
+                continue
 
+        # ✅ fix path for markdown
         img_md = f"![{spec['alt']}](images/{filename})\n*{spec['caption']}*"
         md = md.replace(placeholder, img_md)
 
-    Path(blog_filename).write_text(md, encoding="utf-8")
-    return {"final": md}
-        
+    # save final markdown
+    blog_path.write_text(md, encoding="utf-8")
+
+    return {"final": md}     
 # ==============
 # reducer sub graph
 # ==============
@@ -672,4 +722,4 @@ def run(topic:str):
     return out
 
 
-run("Self attention in transfoermer architecture")
+
