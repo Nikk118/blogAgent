@@ -21,7 +21,9 @@ load_dotenv()
 
 llm = ChatMistralAI(
     model="mistral-small-latest",
-    temperature=0.7
+    temperature=0.7,
+    tags=["blog-agent"]
+
 )
 
 class Task(BaseModel):
