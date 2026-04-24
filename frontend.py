@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import requests
 import json
 import re
 import zipfile
@@ -11,10 +12,7 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
-# -----------------------------
-# Import your compiled LangGraph app
-# -----------------------------
-from blogAgent import app
+
 
 
 GENERATED_IMAGES_DIR = Path("generated_blogs/images")
@@ -184,22 +182,35 @@ if run_btn:
 if st.session_state["is_generating"] and st.session_state["pending_request"]:
     req = st.session_state["pending_request"]
     try:
-        with st.spinner("Generating blog..."):
-            out = app.invoke({
-                "topic": req["topic"],
-                "mode": "",
-                "needs_research": False,
-                "queries": [],
-                "evidence": [],
-                "plan": None,
-                "as_of": req["as_of"],
-                "recency_days": 7,
-                "sections": [],
-                "merged_md": "",
-                "md_with_placeholders": "",
-                "image_specs": [],
-                "final": "",
-            })
+
+        # 🔧 Config
+        API_URL = "http://127.0.0.1:8000"
+        TIMEOUT = 120  # seconds
+
+        with st.spinner("⏳ Generating blog (this may take 20–60 seconds)..."):
+            response = requests.post(
+                f"{API_URL}/generate",
+                json={
+                    "topic": req["topic"]
+                },
+                timeout=TIMEOUT
+            )
+
+        # Handle HTTP errors
+        if response.status_code != 200:
+            try:
+                error_msg = response.json().get("detail", response.text)
+            except Exception:
+                error_msg = response.text
+            raise Exception(f"API Error: {error_msg}")
+
+        data = response.json()
+
+        # Safety check
+        if "result" not in data:
+            raise Exception("Invalid API response: 'result' key missing")
+
+        out = data["result"]
 
         chat = chats.get(req["chat_id"])
         if chat is not None:
@@ -214,6 +225,25 @@ if st.session_state["is_generating"] and st.session_state["pending_request"]:
             )
             chat["logs"].append(f"Generated blog for topic: {req['topic']} on {req['as_of']}")
             st.session_state["last_out"] = out
+
+    except requests.exceptions.Timeout:
+        chat = chats.get(req["chat_id"])
+        if chat is not None:
+            chat["logs"].append(f"Generation failed: Request timed out.")
+        st.session_state["is_generating"] = False
+        st.session_state["pending_request"] = None
+        st.error("Request timed out. Try again or reduce complexity of topic.")
+        st.stop()
+
+    except requests.exceptions.ConnectionError:
+        chat = chats.get(req["chat_id"])
+        if chat is not None:
+            chat["logs"].append(f"Generation failed: Cannot connect to backend.")
+        st.session_state["is_generating"] = False
+        st.session_state["pending_request"] = None
+        st.error("Cannot connect to backend. Is FastAPI server running?")
+        st.stop()
+
     except Exception as e:
         chat = chats.get(req["chat_id"])
         if chat is not None:
