@@ -185,11 +185,11 @@ if st.session_state["is_generating"] and st.session_state["pending_request"]:
 
         # 🔧 Config
         API_URL = "http://127.0.0.1:8000"
-        TIMEOUT = 120  # seconds
+        TIMEOUT = 600 # seconds
 
         with st.spinner("⏳ Generating blog (this may take 20–60 seconds)..."):
             response = requests.post(
-                f"{API_URL}/generate",
+                f"{API_URL}/blog/generate",
                 json={
                     "topic": req["topic"]
                 },
