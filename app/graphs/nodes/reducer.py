@@ -1,3 +1,4 @@
+import time
 from langchain_core.messages import (
     SystemMessage,
     HumanMessage,
@@ -48,6 +49,26 @@ def merge_content(state):
 
 
 # =========================
+# RETRY HELPER
+# =========================
+
+def invoke_with_retry(llm, messages, max_attempts=3, wait_seconds=15):
+    for attempt in range(max_attempts):
+        try:
+            return llm.invoke(messages)
+        except Exception as e:
+            is_rate_limit = (
+                "429" in str(e)
+                or "rate_limited" in str(e).lower()
+                or "rate limit" in str(e).lower()
+            )
+            if is_rate_limit and attempt < max_attempts - 1:
+                time.sleep(wait_seconds)
+            else:
+                raise
+
+
+# =========================
 # DECIDE IMAGES
 # =========================
 
@@ -59,40 +80,34 @@ def decide_images(state):
 
     assert plan is not None
 
-    response = llm.invoke([
-
+    messages = [
         SystemMessage(
             content=DECIDE_IMAGES_SYSTEM
         ),
-
         HumanMessage(
             content=(
-
                 f"Blog: {plan.blog_title}\n"
                 f"Topic: {state['topic']}\n\n"
-
                 "Return JSON with:\n"
                 "- md_with_placeholders\n"
                 "- images\n\n"
-
                 f"{merged_md}"
             )
         )
-    ])
+    ]
+
+    response = invoke_with_retry(llm, messages)
 
     cleaned = response.content.strip()
 
     if cleaned.startswith("```json"):
-
         cleaned = (
             cleaned
             .split("```json", 1)[1]
             .split("```", 1)[0]
             .strip()
         )
-
     elif cleaned.startswith("```"):
-
         cleaned = (
             cleaned
             .split("```", 1)[1]
@@ -101,22 +116,17 @@ def decide_images(state):
         )
 
     try:
-
-        image_plan = decide_image_parser.parse(
-            cleaned
-        )
+        image_plan = decide_image_parser.parse(cleaned)
 
     except Exception:
-
         return {
             "md_with_placeholders": merged_md,
             "image_specs": []
         }
 
     return {
-
         "md_with_placeholders":
-        image_plan.md_with_placeholders,
+            image_plan.md_with_placeholders,
 
         "image_specs": [
             img.model_dump()
