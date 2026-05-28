@@ -9,6 +9,7 @@ import type {
   TimelineStatus,
 } from "@/types/blog"
 
+
 export function extractMarkdownTitle(markdown?: string): string | null {
   if (!markdown) {
     return null

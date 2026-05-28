@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react"
+import Link from "next/link"
 
 export function Header() {
   return (
@@ -7,9 +8,9 @@ export function Header() {
         
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-300 text-black shadow-lg shadow-teal-500/20">
+          <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-300 text-black shadow-lg shadow-teal-500/20">
             <Sparkles className="h-5 w-5" />
-          </div>
+          </Link>
 
           <div>
             <h1 className="text-sm font-semibold tracking-wide text-white">
@@ -24,9 +25,21 @@ export function Header() {
 
         {/* Right */}
         <div className="hidden md:flex items-center gap-3">
-          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
-            LangGraph + Next.js
-          </div>
+          <Link
+  href="/roadmap"
+  className="
+    rounded-2xl
+    border border-white/10
+    bg-white/[0.03]
+    px-4 py-2
+    text-sm text-zinc-300
+    transition
+    hover:bg-white/[0.06]
+    hover:text-white
+  "
+>
+  Roadmap
+</Link>
         </div>
       </div>
     </header>

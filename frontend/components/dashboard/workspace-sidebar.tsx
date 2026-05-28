@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,17 +11,33 @@ import {
   Sparkles,
 } from "lucide-react"
 
+import {
+  onAuthStateChanged,
+  signOut,
+  User,
+} from "firebase/auth"
+
+import { useRouter } from "next/navigation"
+
+import { auth } from "@/lib/firebase"
+
 import { StatusPill } from "@/components/dashboard/status-pill"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { ExecutionStatus, WorkspaceSession } from "@/types/blog"
+
+import type {
+  ExecutionStatus,
+  WorkspaceSession,
+} from "@/types/blog"
 
 interface WorkspaceSidebarProps {
   activeSessionId: string | null
   sessions: WorkspaceSession[]
   status: ExecutionStatus
   collapsed: boolean
-  setCollapsed: React.Dispatch<React.SetStateAction<boolean>>
+  setCollapsed: React.Dispatch<
+    React.SetStateAction<boolean>
+  >
   onNewSession: () => void
   onSelectSession: (id: string) => void
 }
@@ -33,6 +51,36 @@ export function WorkspaceSidebar({
   onNewSession,
   onSelectSession,
 }: WorkspaceSidebarProps) {
+
+  const router = useRouter()
+
+  const [showMenu, setShowMenu] = useState(false)
+
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (currentUser) => {
+        setUser(currentUser)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+
+      await signOut(auth)
+
+      router.push("/login")
+
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   return (
     <aside
       className={cn(
@@ -52,19 +100,23 @@ export function WorkspaceSidebar({
         )}
       </button>
 
-      <div className="flex min-h-0 flex-1 flex-col p-3 overflow-hidden">
-        
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+
         {/* Header */}
         <div
           className={cn(
             "flex items-center",
-            collapsed ? "justify-center" : "justify-between"
+            collapsed
+              ? "justify-center"
+              : "justify-between"
           )}
         >
           <div
             className={cn(
               "flex items-center",
-              collapsed ? "justify-center" : "gap-3"
+              collapsed
+                ? "justify-center"
+                : "gap-3"
             )}
           >
             <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
@@ -116,7 +168,7 @@ export function WorkspaceSidebar({
 
         {/* Sessions */}
         <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden">
-          
+
           {!collapsed && (
             <div className="mb-3 flex items-center justify-between px-1">
               <span className="text-[11px] uppercase tracking-wider text-zinc-500">
@@ -124,7 +176,9 @@ export function WorkspaceSidebar({
               </span>
 
               <span className="font-mono text-[10px] text-zinc-600">
-                {sessions.length.toString().padStart(2, "0")}
+                {sessions.length
+                  .toString()
+                  .padStart(2, "0")}
               </span>
             </div>
           )}
@@ -132,7 +186,9 @@ export function WorkspaceSidebar({
           <div
             className={cn(
               "dashboard-scrollbar flex flex-1 flex-col overflow-y-auto",
-              collapsed ? "gap-3 items-center" : "gap-2 pr-1"
+              collapsed
+                ? "items-center gap-3"
+                : "gap-2 pr-1"
             )}
           >
             {sessions.length === 0 ? (
@@ -147,7 +203,9 @@ export function WorkspaceSidebar({
               sessions.map((session) => (
                 <button
                   key={session.id}
-                  onClick={() => onSelectSession(session.id)}
+                  onClick={() =>
+                    onSelectSession(session.id)
+                  }
                   type="button"
                   className={cn(
                     "group transition-all duration-200",
@@ -175,7 +233,8 @@ export function WorkspaceSidebar({
                   {!collapsed && (
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-zinc-200">
-                        {session.title || "Untitled Session"}
+                        {session.title ||
+                          "Untitled Session"}
                       </p>
 
                       <p className="mt-1 text-[11px] text-zinc-500">
@@ -188,7 +247,7 @@ export function WorkspaceSidebar({
             )}
           </div>
         </div>
- 
+
         {/* Bottom Profile */}
         <div
           className={cn(
@@ -196,35 +255,79 @@ export function WorkspaceSidebar({
             collapsed && "flex justify-center"
           )}
         >
-        
+
           <div
             className={cn(
-              "group transition hover:bg-white/[0.04]",
+              "group relative transition hover:bg-white/[0.04]",
               collapsed
                 ? "flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02]"
                 : "flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] p-3"
             )}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-300 to-cyan-400 text-sm font-semibold text-black">
-                N
+            <div className="flex min-w-0 items-center gap-3">
+
+              {/* Avatar */}
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-teal-300 to-cyan-400 text-sm font-semibold text-black">
+
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt="profile"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>
+                    {user?.displayName?.[0]?.toUpperCase() ||
+                      user?.email?.[0]?.toUpperCase() ||
+                      "U"}
+                  </span>
+                )}
               </div>
 
               {!collapsed && (
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-zinc-200">
-                    Nikhil Yagnik
+                    {user?.displayName ||
+                      user?.email ||
+                      "Guest User"}
                   </p>
 
                   <p className="truncate font-mono text-[10px] text-zinc-500">
-                    graph.runtime.v1
+                    {user?.emailVerified
+                      ? "authenticated.session"
+                      : "guest.session"}
                   </p>
                 </div>
               )}
             </div>
 
             {!collapsed && (
-              <Settings className="size-4 text-zinc-500 transition group-hover:text-zinc-300" />
+              <div className="relative">
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowMenu((prev) => !prev)
+                  }}
+                  className="rounded-xl p-2 text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-300"
+                >
+                  <Settings className="size-4" />
+                </button>
+
+                {showMenu && (
+                  <div
+                    className="absolute right-0 bottom-14 z-[9999] w-40 rounded-2xl border border-white/10 bg-zinc-950 p-2 shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center rounded-xl px-3 py-2 text-sm  text-teal-300 transition hover:bg-red-500/10"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

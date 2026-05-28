@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-
+import remarkGfm from "remark-gfm"
 import {
   Check,
   Copy,
@@ -89,7 +89,10 @@ export function MarkdownRenderer({
   markdown: string
 }) {
   return (
-    <ReactMarkdown components={markdownComponents}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}  // ← add this line
+      components={markdownComponents}
+    >
       {markdown}
     </ReactMarkdown>
   )
