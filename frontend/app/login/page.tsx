@@ -39,6 +39,20 @@ export default function LoginPage() {
     return response.data;
   };
 
+  const syncUser = async (token: string) => {
+  const response = await axios.post(
+    "http://localhost:8000/sync-user",
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+
+  return response.data
+}
+
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
@@ -51,9 +65,13 @@ export default function LoginPage() {
 
       const token = await result.user.getIdToken();
 
-      const userData = await fetchCurrentUser(token);
+      const userData = await fetchCurrentUser(token)
 
-      console.log("GOOGLE USER:", userData);
+console.log("GOOGLE USER:", userData)
+
+const syncedUser = await syncUser(token)
+
+console.log("SYNCED USER:", syncedUser)
 
       setSuccess("Successfully logged in with Google");
 
@@ -96,9 +114,13 @@ export default function LoginPage() {
 
       const token = await result.user.getIdToken();
 
-      const userData = await fetchCurrentUser(token);
+      const userData = await fetchCurrentUser(token)
 
-      console.log("EMAIL USER:", userData);
+console.log("EMAIL USER:", userData)
+
+const syncedUser = await syncUser(token)
+
+console.log("SYNCED USER:", syncedUser)
 
       setSuccess(
         isSignup
