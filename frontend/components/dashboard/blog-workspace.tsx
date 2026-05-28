@@ -8,7 +8,10 @@ import { WorkspaceInput } from "@/components/dashboard/workspace-input"
 import { WorkspaceSidebar } from "@/components/dashboard/workspace-sidebar"
 import { WorkspaceTabs } from "@/components/dashboard/workspace-tabs"
 
-import { generateBlog } from "@/lib/api"
+import {
+  generateBlog,
+  getBlogs,
+} from "@/lib/api"
 
 import {
   flattenEvidence,
@@ -35,6 +38,7 @@ export function BlogWorkspace() {
     setDraftTopic,
     startGeneration,
     status,
+    setSessions,
   } = useBlogWorkspaceStore()
 
   // Sidebar state
@@ -43,6 +47,56 @@ export function BlogWorkspace() {
   const activeSession = sessions.find(
     (session) => session.id === activeSessionId
   )
+  useEffect(() => {
+
+  async function loadBlogs() {
+
+    try {
+
+      const blogs = await getBlogs()
+
+      const mappedSessions = blogs.map(
+        (blog: any) => ({
+
+          id: String(blog.id),
+
+          topic: blog.title,
+
+          title: blog.title,
+
+          status: "completed",
+
+          result: blog.content,
+
+          createdAt: new Date().toISOString(),
+        })
+      )
+
+      setSessions(mappedSessions)
+
+      // Auto select latest blog
+      if (mappedSessions.length > 0) {
+
+        selectSession(
+          mappedSessions[0].id
+        )
+      }
+
+    } catch (error) {
+
+      console.error(
+        "Failed to load blogs",
+        error
+      )
+    }finally {
+
+  setIsLoadingBlogs(false)
+}
+  }
+
+  loadBlogs()
+
+}, [selectSession, setSessions])
 
   const result = activeSession?.result
 
@@ -58,13 +112,15 @@ export function BlogWorkspace() {
       return
     }
 
+    
     const interval = window.setInterval(() => {
       advancePhase()
     }, 1600)
 
     return () => window.clearInterval(interval)
   }, [advancePhase, status])
-
+const [isLoadingBlogs, setIsLoadingBlogs] =
+  useState(true)
   const handleGenerate = useCallback(async () => {
     const cleanTopic = draftTopic.trim()
 
@@ -107,15 +163,16 @@ export function BlogWorkspace() {
       <div className="relative z-10 flex min-h-screen">
         
         {/* Sidebar */}
-        <WorkspaceSidebar
-          activeSessionId={activeSessionId}
-          collapsed={sidebarCollapsed}
-          setCollapsed={setSidebarCollapsed}
-          onNewSession={newSession}
-          onSelectSession={selectSession}
-          sessions={sessions}
-          status={status}
-        />
+       <WorkspaceSidebar
+  activeSessionId={activeSessionId}
+  collapsed={sidebarCollapsed}
+  setCollapsed={setSidebarCollapsed}
+  onClearSession={newSession}
+  onSelectSession={selectSession}
+  sessions={sessions}
+  status={status}
+  isLoadingBlogs={isLoadingBlogs}
+/>
 
         {/* Main Content */}
         <main

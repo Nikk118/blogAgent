@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
-
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
 from sqlalchemy.orm import Session
@@ -90,7 +90,7 @@ def generate_blog(
             user_id=user.id,
             title=req.topic,
             prompt=req.topic,
-            content=result["final"]
+            content=jsonable_encoder(result)
         )
 
         db.add(new_blog)
@@ -116,3 +116,30 @@ def generate_blog(
             status_code=500,
             detail=str(e)
         )
+    
+
+@router.get("/all")
+def get_blogs(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.firebase_uid ==
+        current_user["uid"]
+    ).first()
+
+    if not user:
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    blogs = db.query(BlogSession).filter(
+        BlogSession.user_id == user.id
+    ).order_by(
+        BlogSession.id.desc()
+    ).all()
+
+    return blogs

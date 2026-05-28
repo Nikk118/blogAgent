@@ -29,3 +29,21 @@ export async function generateBlog(
 
   return response.data
 }
+
+
+export async function getBlogs() {
+
+  const token =
+    await auth.currentUser?.getIdToken()
+
+  const response = await API.get(
+    "/blog/all",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+
+  return response.data
+}
