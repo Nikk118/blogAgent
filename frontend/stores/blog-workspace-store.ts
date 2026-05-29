@@ -20,6 +20,7 @@ interface BlogWorkspaceState {
 
   status: ExecutionStatus
 
+
   setDraftTopic: (
     topic: string
   ) => void
@@ -50,6 +51,8 @@ interface BlogWorkspaceState {
   clearSession: () => void
 
   advancePhase: () => void
+
+  resetStore: () => void
 }
 
 export const useBlogWorkspaceStore =
@@ -262,6 +265,15 @@ export const useBlogWorkspaceStore =
           status: "idle",
         }),
 
+
+        resetStore: () =>
+  set({
+    activeSessionId: null,
+    draftTopic: "",
+    phaseIndex: 0,
+    sessions: [],
+    status: "idle",
+  }),
       // =========================
       // ADVANCE PHASE
       // =========================

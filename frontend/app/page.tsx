@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
+import  
+{ LoadingScreen }  from "../components/loading/loadingScreen"
 import { useRouter } from "next/navigation"
 
 import {
@@ -44,7 +45,7 @@ export default function HomePage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        Loading...
+        <LoadingScreen />
       </main>
     )
   }

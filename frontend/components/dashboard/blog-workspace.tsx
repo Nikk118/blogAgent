@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import { useBlogWorkspaceStore } from "@/stores/blog-workspace-store"
+import { Header } from "../layout/header"
 
 export function BlogWorkspace() {
   const {
@@ -31,7 +32,7 @@ export function BlogWorkspace() {
     completeGeneration,
     draftTopic,
     failGeneration,
-    newSession,
+    clearSession,
     phaseIndex,
     selectSession,
     sessions,
@@ -167,7 +168,7 @@ const [isLoadingBlogs, setIsLoadingBlogs] =
   activeSessionId={activeSessionId}
   collapsed={sidebarCollapsed}
   setCollapsed={setSidebarCollapsed}
-  onClearSession={newSession}
+  onClearSession={clearSession}
   onSelectSession={selectSession}
   sessions={sessions}
   status={status}
@@ -183,6 +184,7 @@ const [isLoadingBlogs, setIsLoadingBlogs] =
       : "md:ml-[280px]"
   )}
 >
+ <Header  collapsed={sidebarCollapsed}/>
           <div className="dashboard-scrollbar min-h-0 flex-1 overflow-y-auto">
             
            <div
@@ -227,6 +229,7 @@ const [isLoadingBlogs, setIsLoadingBlogs] =
           </div>
 
           {/* Input */}
+          {(!activeSessionId || status === "running") && (
          <WorkspaceInput
   draftTopic={draftTopic}
   status={status}
@@ -236,7 +239,7 @@ const [isLoadingBlogs, setIsLoadingBlogs] =
   }
   onDraftTopicChange={setDraftTopic}
   onGenerate={handleGenerate}
-/>
+/>)}
          
 
         </main>

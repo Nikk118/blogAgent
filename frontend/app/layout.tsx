@@ -34,7 +34,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-black text-white">
         
         {/* Header */}
-        <Header />
+        {/* <Header /> */}
 
         {/* Main App */}
         <main className="pt-16 min-h-screen">

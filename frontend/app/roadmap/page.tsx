@@ -22,6 +22,8 @@ const inProgress = [
   "Persistent Blog Sessions",
   "Improved Export Formatting",
   "Session History",
+  "PostgreSQL Database",
+  "Cloud Sync",
 ]
 
 const blocked = [
@@ -32,8 +34,7 @@ const blocked = [
 ]
 
 const planned = [
-  "PostgreSQL Database",
-  "Cloud Sync",
+  
   "Blog Search",
   "Multi-device Persistence",
   "Stripe Billing",
