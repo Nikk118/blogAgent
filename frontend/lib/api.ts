@@ -47,3 +47,21 @@ export async function getBlogs() {
 
   return response.data
 }
+
+export async function getBlog(
+  blogId: string
+) {
+  const token =
+    await auth.currentUser?.getIdToken()
+
+  const response = await API.get(
+    `/blog/${blogId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+
+  return response.data
+}

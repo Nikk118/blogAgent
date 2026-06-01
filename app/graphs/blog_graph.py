@@ -50,7 +50,7 @@ class State(TypedDict):
     merged_md: str
     md_with_placeholders: str
     image_specs: List[dict]
-
+    generated_images: List[dict]
     final: str
 
 
@@ -237,6 +237,7 @@ def run(topic: str):
             "merged_md": "",
             "md_with_placeholders": "",
             "image_specs": [],
+            "generated_images": [],
             "final": "",
         }
     )

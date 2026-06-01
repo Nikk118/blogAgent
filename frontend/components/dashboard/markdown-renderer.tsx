@@ -26,12 +26,17 @@ import { cn } from "@/lib/utils"
 
 import type { ExecutionStatus } from "@/types/blog"
 
+// ✅ image map type: filename -> base64 string
+type ImageMap = Record<string, string>
+
 export function MarkdownPreview({
   markdown,
   status,
+  images = {},
 }: {
   markdown?: string
   status: ExecutionStatus
+  images?: ImageMap
 }) {
   if (!markdown && status === "running") {
     return (
@@ -53,20 +58,15 @@ export function MarkdownPreview({
 
   return (
     <article className="rounded-2xl border border-white/10 bg-[#07090e]/82 p-5 shadow-[0_30px_120px_rgba(0,0,0,0.34)] sm:p-8">
-      
-      {/* Top Bar */}
       <div className="mb-6 flex items-center justify-between">
-        
         <div>
           <h2 className="text-sm font-medium text-zinc-200">
             Markdown Preview
           </h2>
-
           <p className="text-xs text-zinc-500">
             Generated article artifact
           </p>
         </div>
-
         <Link href="/blog">
           <Button
             variant="outline"
@@ -78,24 +78,71 @@ export function MarkdownPreview({
         </Link>
       </div>
 
-      <MarkdownRenderer markdown={markdown} />
+      <MarkdownRenderer markdown={markdown} images={images} />
     </article>
   )
 }
 
 export function MarkdownRenderer({
   markdown,
+  images = {},
 }: {
   markdown: string
+  images?: ImageMap
+  
 }) {
+  console.log(markdown)
   return (
+    
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}  // ← add this line
-      components={markdownComponents}
+      remarkPlugins={[remarkGfm]}
+      components={makeMarkdownComponents(images)}
     >
       {markdown}
     </ReactMarkdown>
   )
+}
+
+// ✅ factory function so images map is available inside components
+function makeMarkdownComponents(images: ImageMap): Components {
+  return {
+    ...markdownComponents,
+
+    img({ alt, src }) {
+  const source = typeof src === "string" ? src.trim() : ""
+
+  if (
+    !source ||
+    source.includes("IMAGE GENERATION FAILED") ||
+    source.includes("RESOURCE_EXHAUSTED") ||
+    source.includes("ERROR:") ||
+    source.includes("Quota")
+  ) {
+    return null
+  }
+
+  const filename = source.replace("images/", "").split("/").pop() || ""
+  const base64 = images[filename]
+  const resolvedSrc = base64
+    ? `data:image/png;base64,${base64}`
+    : source
+
+  return (
+    <span className="my-8 block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
+      <img
+        src={resolvedSrc}
+        alt={alt || "Generated image"}
+        className="aspect-[16/9] w-full object-cover"
+      />
+      {alt ? (
+        <span className="block border-t border-white/10 px-4 py-3 text-sm text-zinc-500">
+          {alt}
+        </span>
+      ) : null}
+    </span>
+  )
+},
+  }
 }
 
 const markdownComponents: Components = {
@@ -121,22 +168,11 @@ const markdownComponents: Components = {
   },
 
   code({ children, className }) {
-    const match = /language-(\w+)/.exec(
-      className || ""
-    )
-
-    const code = String(children).replace(
-      /\n$/,
-      ""
-    )
+    const match = /language-(\w+)/.exec(className || "")
+    const code = String(children).replace(/\n$/, "")
 
     if (match) {
-      return (
-        <CodeBlock
-          code={code}
-          language={match[1]}
-        />
-      )
+      return <CodeBlock code={code} language={match[1]} />
     }
 
     return (
@@ -174,47 +210,8 @@ const markdownComponents: Components = {
     return <hr className="my-9 border-white/10" />
   },
 
-  img({ alt, src }) {
-    const source =
-      typeof src === "string"
-        ? src.trim()
-        : ""
-
-    // Skip broken image payloads
-    if (
-      !source ||
-      source.includes("IMAGE GENERATION FAILED") ||
-      source.includes("RESOURCE_EXHAUSTED") ||
-      source.includes("ERROR:") ||
-      source.includes("Quota")
-    ) {
-      return null
-    }
-
-    return (
-      <figure className="my-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
-        
-        <img
-          src={source}
-          alt={alt || "Generated image"}
-          className="aspect-[16/9] w-full object-cover"
-        />
-
-        {alt ? (
-          <figcaption className="border-t border-white/10 px-4 py-3 text-sm text-zinc-500">
-            {alt}
-          </figcaption>
-        ) : null}
-      </figure>
-    )
-  },
-
   li({ children }) {
-    return (
-      <li className="pl-1 text-zinc-300">
-        {children}
-      </li>
-    )
+    return <li className="pl-1 text-zinc-300">{children}</li>
   },
 
   ol({ children }) {
@@ -239,36 +236,24 @@ const markdownComponents: Components = {
 
   strong({ children }) {
     return (
-      <strong className="font-semibold text-zinc-50">
-        {children}
-      </strong>
+      <strong className="font-semibold text-zinc-50">{children}</strong>
     )
   },
 
   table({ children }) {
     return (
       <div className="dashboard-scrollbar my-7 overflow-x-auto rounded-2xl border border-white/10">
-        <table className="w-full border-collapse text-sm">
-          {children}
-        </table>
+        <table className="w-full border-collapse text-sm">{children}</table>
       </div>
     )
   },
 
   tbody({ children }) {
-    return (
-      <tbody className="divide-y divide-white/10">
-        {children}
-      </tbody>
-    )
+    return <tbody className="divide-y divide-white/10">{children}</tbody>
   },
 
   td({ children }) {
-    return (
-      <td className="px-4 py-3 text-zinc-400">
-        {children}
-      </td>
-    )
+    return <td className="px-4 py-3 text-zinc-400">{children}</td>
   },
 
   th({ children }) {
@@ -287,7 +272,6 @@ const markdownComponents: Components = {
     )
   },
 }
-
 function CodeBlock({
   code,
   language,
@@ -295,33 +279,21 @@ function CodeBlock({
   code: string
   language: string
 }) {
-  const [copied, setCopied] =
-    useState(false)
+  const [copied, setCopied] = useState(false)
 
   async function copyCode() {
-    if (typeof navigator === "undefined") {
-      return
-    }
-
+    if (typeof navigator === "undefined") return
     await navigator.clipboard.writeText(code)
-
     setCopied(true)
-
-    window.setTimeout(
-      () => setCopied(false),
-      1200
-    )
+    window.setTimeout(() => setCopied(false), 1200)
   }
 
   return (
     <div className="my-7 overflow-hidden rounded-2xl border border-white/10 bg-[#050609] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-      
       <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.035] px-4 py-2.5">
-        
         <span className="font-mono text-[11px] uppercase text-zinc-500">
           {language}
         </span>
-
         <Button
           className={cn(
             "h-7 rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100",
@@ -332,20 +304,12 @@ function CodeBlock({
           type="button"
           variant="ghost"
         >
-          {copied ? (
-            <Check className="size-3.5" />
-          ) : (
-            <Copy className="size-3.5" />
-          )}
-
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-
       <pre className="dashboard-scrollbar overflow-x-auto p-4 text-[13px] leading-6">
-        <code className="font-mono text-zinc-300">
-          {code}
-        </code>
+        <code className="font-mono text-zinc-300">{code}</code>
       </pre>
     </div>
   )

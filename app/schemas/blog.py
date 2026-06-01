@@ -93,6 +93,7 @@ class Plan(BaseModel):
         "news_roundup",
         "comparison",
         "system_design",
+        "analytical",
     ] = "explainer"
 
     constraints: List[str] = Field(
@@ -100,7 +101,18 @@ class Plan(BaseModel):
     )
 
     tasks: List[Task]
-
+    @field_validator("blog_kind", mode="before")
+    @classmethod
+    def coerce_blog_kind(cls, v):
+        valid = {
+            "explainer",
+            "tutorial",
+            "news_roundup",
+            "comparison",
+            "system_design",
+            "analytical",
+        }
+        return v if v in valid else "explainer"
 
 # =========================
 # EVIDENCE

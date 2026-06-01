@@ -33,6 +33,13 @@ export interface BlogTask {
   require_code: boolean
 }
 
+export interface GeneratedImage {
+  filename: string
+  alt: string
+  caption: string
+  image_data?: string  // base64, only from GET /blog/{id}
+}
+
 export interface BlogPlan {
   blog_title: string
   audience: string
@@ -83,6 +90,7 @@ export interface BlogResult {
   merged_md?: string
   md_with_placeholders?: string
   image_specs?: ImageSpec[]
+  generated_images?: GeneratedImage[] 
   final?: string
   logs?: string[]
 }

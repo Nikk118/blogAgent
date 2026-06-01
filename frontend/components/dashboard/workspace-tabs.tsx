@@ -14,6 +14,9 @@ import { PlanView } from "@/components/dashboard/plan-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { BlogResult, ExecutionStatus } from "@/types/blog"
 
+
+// Build image map from result
+
 export function WorkspaceTabs({
   error,
   phaseIndex,
@@ -27,6 +30,16 @@ export function WorkspaceTabs({
   status: ExecutionStatus
   topic: string
 }) {
+
+  // Build image map from result
+const imageMap = (result?.images ?? []).reduce(
+  (acc, img) => {
+    acc[img.filename] = img.image_data
+    return acc
+  },
+  {} as Record<string, string>
+)
+
   return (
     <Tabs
       defaultValue="markdown"
@@ -50,8 +63,12 @@ export function WorkspaceTabs({
         <EvidenceView result={result} status={status} />
       </TabsContent>
       <TabsContent className="w-full min-w-0" value="markdown">
-        <MarkdownPreview markdown={result?.final} status={status} />
-      </TabsContent>
+  <MarkdownPreview 
+    markdown={result?.final} 
+    status={status}
+    images={imageMap}  // ✅ add this
+  />
+</TabsContent>
       <TabsContent className="w-full min-w-0" value="images">
         <ImagesView result={result} status={status} />
       </TabsContent>
@@ -79,7 +96,17 @@ function TabTrigger({
 }) {
   return (
     <TabsTrigger
-      className="h-10 flex-none rounded-xl border border-transparent px-3 text-xs text-zinc-500 transition hover:bg-white/[0.04] hover:text-zinc-200 data-active:border-white/10 data-active:bg-white/[0.08] data-active:text-zinc-50 data-active:shadow-[0_16px_45px_rgba(0,0,0,0.22)]"
+      className="
+h-10 flex-none rounded-xl border border-transparent px-3 text-xs
+text-zinc-500 transition
+hover:bg-white/[0.04]
+hover:text-zinc-200
+
+data-[state=active]:border-cyan-400/50
+data-[state=active]:bg-cyan-500/15
+data-[state=active]:text-white
+data-[state=active]:shadow-[0_0_25px_rgba(6,182,212,0.35)]
+"
       value={value}
     >
       <Icon className="size-4" />

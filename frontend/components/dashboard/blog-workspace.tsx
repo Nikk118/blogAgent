@@ -12,7 +12,6 @@ import {
   generateBlog,
   getBlogs,
 } from "@/lib/api"
-
 import {
   flattenEvidence,
   getImageSpecs,
@@ -57,21 +56,25 @@ export function BlogWorkspace() {
       const blogs = await getBlogs()
 
       const mappedSessions = blogs.map(
-        (blog: any) => ({
+  (blog: any) => ({
 
-          id: String(blog.id),
+    id: String(blog.id),
 
-          topic: blog.title,
+    topic: blog.title,
 
-          title: blog.title,
+    title: blog.title,
 
-          status: "completed",
+    status: "completed",
 
-          result: blog.content,
+    result: {
+      ...blog.content,
+      images: blog.images,
+    },
 
-          createdAt: new Date().toISOString(),
-        })
-      )
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+)
 
       setSessions(mappedSessions)
 
@@ -150,6 +153,8 @@ const [isLoadingBlogs, setIsLoadingBlogs] =
     status,
   ])
 
+
+  
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#030407] text-zinc-100">
       
