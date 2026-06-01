@@ -2,12 +2,13 @@
 
 import { AlertTriangle } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
-
+  import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { WorkspaceHero } from "@/components/dashboard/workspace-hero"
 import { WorkspaceInput } from "@/components/dashboard/workspace-input"
 import { WorkspaceSidebar } from "@/components/dashboard/workspace-sidebar"
 import { WorkspaceTabs } from "@/components/dashboard/workspace-tabs"
-
+import {useRouter} from "next/navigation"
 import {
   generateBlog,
   getBlogs,
@@ -41,67 +42,88 @@ export function BlogWorkspace() {
     setSessions,
   } = useBlogWorkspaceStore()
 
+  const router = useRouter()
+
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
+  
   const activeSession = sessions.find(
     (session) => session.id === activeSessionId
   )
-  useEffect(() => {
 
-  async function loadBlogs() {
 
-    try {
+useEffect(() => {
 
-      const blogs = await getBlogs()
+  const unsubscribe = onAuthStateChanged(
+    auth,
+    async (user) => {
 
-      const mappedSessions = blogs.map(
-  (blog: any) => ({
-
-    id: String(blog.id),
-
-    topic: blog.title,
-
-    title: blog.title,
-
-    status: "completed",
-
-    result: {
-      ...blog.content,
-      images: blog.images,
-    },
-
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  })
-)
-
-      setSessions(mappedSessions)
-
-      // Auto select latest blog
-      if (mappedSessions.length > 0) {
-
-        selectSession(
-          mappedSessions[0].id
-        )
+      if (!user) {
+        setIsLoadingBlogs(false)
+        return
       }
 
-    } catch (error) {
+      try {
 
-      console.error(
-        "Failed to load blogs",
-        error
-      )
-    }finally {
+        const blogs = await getBlogs()
 
-  setIsLoadingBlogs(false)
-}
+        const mappedSessions = blogs.map(
+          (blog: any) => ({
+
+            id: String(blog.id),
+
+            topic: blog.title,
+
+            title: blog.title,
+
+            status: "completed",
+
+            result: {
+              ...blog.content,
+              images: blog.images,
+            },
+
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+        )
+
+        setSessions(mappedSessions)
+
+        selectSession(null as any)
+
+      }catch (error: any) {
+
+  console.error(
+    "Failed to load blogs",
+    error
+  )
+
+  if (
+    error?.message ===
+    "User not authenticated"
+  ) {
+    router.replace("/login")
+    return
   }
 
-  loadBlogs()
+  if (
+    error?.response?.status === 401
+  ) {
+    router.replace("/login")
+    return
+  }
+}finally {
+
+        setIsLoadingBlogs(false)
+
+      }
+    }
+  )
+
+  return unsubscribe
 
 }, [selectSession, setSessions])
-
   const result = activeSession?.result
 
   const evidenceCount = flattenEvidence(result).length

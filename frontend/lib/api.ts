@@ -8,12 +8,27 @@ const API = axios.create({
   baseURL: "http://127.0.0.1:8000",
 })
 
+async function getAuthToken() {
+
+  const user = auth.currentUser
+
+  if (!user) {
+    throw new Error(
+      "User not authenticated"
+    )
+  }
+
+  return await user.getIdToken(
+    true
+  )
+}
+
 export async function generateBlog(
   topic: string
 ): Promise<BlogResponse> {
 
   const token =
-    await auth.currentUser?.getIdToken()
+    await getAuthToken()
 
   const response = await API.post(
     "/blog/generate",
@@ -22,7 +37,8 @@ export async function generateBlog(
     },
     {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization:
+          `Bearer ${token}`,
       },
     }
   )
@@ -30,17 +46,17 @@ export async function generateBlog(
   return response.data
 }
 
-
 export async function getBlogs() {
 
   const token =
-    await auth.currentUser?.getIdToken()
+    await getAuthToken()
 
   const response = await API.get(
     "/blog/all",
     {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization:
+          `Bearer ${token}`,
       },
     }
   )
@@ -51,14 +67,16 @@ export async function getBlogs() {
 export async function getBlog(
   blogId: string
 ) {
+
   const token =
-    await auth.currentUser?.getIdToken()
+    await getAuthToken()
 
   const response = await API.get(
     `/blog/${blogId}`,
     {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization:
+          `Bearer ${token}`,
       },
     }
   )
