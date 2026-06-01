@@ -184,7 +184,7 @@ def get_blogs(
             "prompt": blog.prompt,
             "content": blog.content,
             
-            "images": images_data,
+            "generated_images": images_data,
         })
 
     return response

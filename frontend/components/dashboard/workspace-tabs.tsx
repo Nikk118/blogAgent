@@ -32,13 +32,21 @@ export function WorkspaceTabs({
 }) {
 
   // Build image map from result
-const imageMap = (result?.images ?? []).reduce(
+
+
+const imageMap = (
+  result?.generated_images ?? []
+).reduce(
   (acc, img) => {
-    acc[img.filename] = img.image_data
+    if (img.image_data) {
+      acc[img.filename] = img.image_data
+    }
     return acc
   },
   {} as Record<string, string>
 )
+
+
 
   return (
     <Tabs

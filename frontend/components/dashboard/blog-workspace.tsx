@@ -79,9 +79,9 @@ useEffect(() => {
             status: "completed",
 
             result: {
-              ...blog.content,
-              images: blog.images,
-            },
+  ...blog.content,
+  generated_images: blog.generated_images,
+},
 
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

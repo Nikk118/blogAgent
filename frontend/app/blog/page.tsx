@@ -25,13 +25,15 @@ export default function BlogPage() {
   )
 
   const imageMap = (
-    activeSession?.result?.images ?? []
+    activeSession?.result?.generated_images ?? []
   ).reduce(
     (acc, img) => {
+    if (img.image_data) {
       acc[img.filename] = img.image_data
-      return acc
-    },
-    {} as Record<string, string>
+    }
+    return acc
+  },
+  {} as Record<string, string>
   )
 
   const markdown =
@@ -65,7 +67,7 @@ export default function BlogPage() {
   async function downloadImages() {
 
     const images =
-      activeSession?.result?.images ?? []
+      activeSession?.result?.generated_images ?? []
 
     if (images.length === 0) {
       return

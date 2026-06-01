@@ -1,8 +1,44 @@
-import { Image as ImageIcon, ImagePlus, Sparkles } from "lucide-react"
-
+import { Image as ImageIcon, ImagePlus, ChevronDown } from "lucide-react"
+import { useState } from "react"
 import { EmptyState, PanelSkeleton } from "@/components/dashboard/empty-state"
 import { getImageSpecs } from "@/lib/blog-normalizers"
 import type { BlogResult, ExecutionStatus } from "@/types/blog"
+
+function PromptExpander({ prompt }: { prompt: string }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-3 py-2.5 text-left transition hover:bg-white/[0.04]"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2">
+          <span className="size-1.5 rounded-full bg-white/30" />
+          <span className="text-[11px] font-medium uppercase tracking-widest text-[#e4e4e4]/50">
+            Image prompt
+          </span>
+        </span>
+        <ChevronDown
+          className={`size-3.5 text-white/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <p className="border-t border-white/10 px-3 py-3 font-mono text-[11px] leading-5 text-[#e4e4e4]/60">
+            {prompt}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function ImagesView({
   result,
@@ -11,22 +47,16 @@ export function ImagesView({
   result?: BlogResult
   status: ExecutionStatus
 }) {
- const specs = getImageSpecs(result)
+  const specs = getImageSpecs(result)
+  const dbImages = (result as any)?.generated_images ?? []
 
-const dbImages = (result as any)?.images ?? []
-
-const images = specs.map((spec: any) => {
-
-  const dbImage = dbImages.find(
-    (img: any) =>
-      img.filename === spec.filename
-  )
-
-  return {
-    ...spec,
-    image_data: dbImage?.image_data,
-  }
-})
+  const images = specs.map((spec: any) => {
+    const dbImage = dbImages.find((img: any) => img.filename === spec.filename)
+    return {
+      ...spec,
+      image_data: dbImage?.image_data,
+    }
+  })
 
   if (images.length === 0 && status === "running") {
     return <PanelSkeleton />
@@ -50,64 +80,48 @@ const images = specs.map((spec: any) => {
           key={`${image.filename}-${index}`}
         >
           <div className="relative aspect-[16/9] overflow-hidden border-b border-white/10">
+            {image.image_data ? (
+              <img
+                src={`data:image/png;base64,${image.image_data}`}
+                alt={image.alt}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 runtime-grid opacity-20" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_80%_0%,rgba(217,70,239,0.2),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
+                <div className="absolute bottom-4 left-4 flex items-center gap-2 text-[#ffffff]">
+                  <span className="flex size-10 items-center justify-center rounded-2xl border border-white/10 bg-[#1b2a41]/90 backdrop-blur">
+                    <ImagePlus className="size-4" />
+                  </span>
+                  <span className="text-sm font-medium">Visual asset {index + 1}</span>
+                </div>
+              </>
+            )}
 
-  {image.image_data ? (
-    <img
-      src={`data:image/png;base64,${image.image_data}`}
-      alt={image.alt}
-      className="h-full w-full object-cover"
-      loading="lazy"
-    />
-  ) : (
-    <>
-      <div className="absolute inset-0 runtime-grid opacity-20" />
-
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_80%_0%,rgba(217,70,239,0.2),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
-
-      <div className="absolute bottom-4 left-4 flex items-center gap-2 text-[#ffffff]">
-        <span className="flex size-10 items-center justify-center rounded-2xl border border-white/10 bg-[#1b2a41]/90 backdrop-blur">
-          <ImagePlus className="size-4" />
-        </span>
-
-        <span className="text-sm font-medium">
-          Visual asset {index + 1}
-        </span>
-      </div>
-    </>
-  )}
-
-  <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-[#1b2a41]/90 px-3 py-1 font-mono text-[11px] text-[#e4e4e4]/90 backdrop-blur">
-    {image.size || "1024x1024"}
-  </div>
-
-  <span className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 animate-scanline" />
-</div>
-          <div className="space-y-3 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="line-clamp-2 text-base font-semibold text-[#ffffff]">
-                  {image.alt}
-                </h3>
-                <p className="mt-1 truncate font-mono text-[11px] text-[#e4e4e4]/60">
-                  {image.filename}
-                </p>
-              </div>
-              
+            <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-[#1b2a41]/90 px-3 py-1 font-mono text-[11px] text-[#e4e4e4]/90 backdrop-blur">
+              {image.size || "1024x1024"}
             </div>
+
+            <span className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 animate-scanline" />
+          </div>
+
+          <div className="space-y-3 p-4">
+            <div className="min-w-0">
+              <h3 className="line-clamp-2 text-base font-semibold text-[#ffffff]">
+                {image.alt}
+              </h3>
+              <p className="mt-1 truncate font-mono text-[11px] text-[#e4e4e4]/60">
+                {image.filename}
+              </p>
+            </div>
+
             {image.caption ? (
               <p className="text-sm leading-6 text-[#e4e4e4]/60">{image.caption}</p>
             ) : null}
-            {image.prompt ? (
-              <div className="rounded-xl border border-white/10 bg-[#1b2a41]/60 p-3">
-                <p className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase text-[#e4e4e4]/60">
-                  <Sparkles className="size-3.5" />
-                  Prompt
-                </p>
-                <p className="line-clamp-4 text-xs leading-5 text-[#e4e4e4]/80">
-                  {image.prompt}
-                </p>
-              </div>
-            ) : null}
+
+            {image.prompt ? <PromptExpander prompt={image.prompt} /> : null}
           </div>
         </article>
       ))}
