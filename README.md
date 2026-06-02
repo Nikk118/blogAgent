@@ -1,183 +1,253 @@
 # BlogAgent
 
-A LangGraph + Streamlit blog generation app that plans, researches, writes, and exports technical blog posts.
+A LangGraph + Next.js blog generation app that plans, researches, writes, and exports technical blog posts — backed by Supabase (PostgreSQL) and Firebase Authentication.
 
 ## What This Project Does
 
+- Authenticates users via Firebase Auth (email/password, Google OAuth, etc.)
+- Stores user records, blog sessions, and generated images in Supabase (PostgreSQL).
 - Builds a structured blog plan with section tasks and writing constraints.
 - Optionally performs web research with Tavily and normalizes evidence.
-- Writes each section with an LLM worker node.
+- Writes each section with an LLM worker node (ChatMistralAI).
 - Merges sections into final markdown.
-- Optionally decides and generates technical images.
-- Saves output markdown to generated_blogs/ and images to generated_blogs/images/.
-- Provides a Streamlit UI with multi-chat history and result tabs.
+- Generates technical images via Pollinations AI (`image.pollinations.ai`).
+- Saves session output (content JSONB) and images (binary) to Supabase tables.
+- Provides a Next.js frontend with multi-chat history and tabbed result views.
+- Traces every LangGraph run (nodes, LLM calls, latency, token usage) via LangSmith.
 
 ## Project Structure
 
-- blogAgent.py: LangGraph backend pipeline, Pydantic schemas, Tavily research, planning/writing, image generation, and app graph compile.
-- frontend.py: Streamlit UI, multi-chat sessions, invoke flow, tabs for Plan/Evidence/Markdown/Images/Logs.
-- requirement.txt: Python dependencies.
-- generated_blogs/: Generated markdown outputs.
-- generated_blogs/images/: Generated image assets.
-- .env: Environment variables for API keys (not committed).
+```
+BLOGAGENT/
+├── app/                         # FastAPI backend
+│   ├── db/
+│   │   └── database.py          # SQLAlchemy engine + Base
+│   ├── models/
+│   │   ├── user.py              # User model (firebase_uid, email)
+│   │   ├── blog_session.py      # BlogSession model (content JSONB)
+│   │   └── blog_image.py        # BlogImage model (binary image data)
+│   ├── routes/                  # FastAPI routers (auth, sessions, images)
+│   └── main.py                  # FastAPI app entrypoint
+├── frontend/                    # Next.js frontend
+│   ├── app/                     # App Router pages
+│   ├── components/              # UI components
+│   └── lib/
+│       ├── firebase.ts          # Firebase client init
+│       └── api.ts               # API client (attaches Firebase ID token)
+├── generated_blogs/             # (local dev) markdown outputs
+├── .env                         # Environment variables (not committed)
+├── requirements.txt
+├── run.py                       # Direct LangGraph runner
+└── theme.py
+```
 
-## Architecture (LangGraph)
+## Architecture
 
-Main graph:
+### LangGraph Pipeline (Backend)
 
-1. router
-2. research (conditional)
-3. orachestrator
-4. worker (fanout for section tasks)
-5. reducer subgraph
+```
+router
+  └─► research (conditional, Tavily)
+        └─► orchestrator
+              └─► worker × N  (fanout per section task)
+                    └─► reducer subgraph
+                          ├─► merge_content
+                          ├─► decide_images
+                          └─► generate_images  (Pollinations AI)
+```
 
-Reducer subgraph:
+Output state: `final` markdown, `plan`, `evidence`, `image_specs`, `generated_images`.
 
-1. merge_content
-2. decide_images
-3. generate_andplace_image
+### Database (Supabase / PostgreSQL)
 
-Output state includes final markdown and intermediate artifacts like plan, evidence, and image specs.
+Three tables managed with SQLAlchemy models:
+
+| Table | Key Columns |
+|---|---|
+| `users` | `id`, `firebase_uid` (unique), `email` |
+| `blog_sessions` | `id`, `user_id` → `users.id`, `title`, `prompt`, `content` (JSONB) |
+| `blog_images` | `id`, `blog_session_id` → `blog_sessions.id`, `filename`, `alt`, `caption`, `image_data` (LargeBinary) |
+
+### Authentication (Firebase)
+
+- Users sign in through the Next.js frontend via the Firebase JS SDK.
+- Firebase issues an ID token sent as `Authorization: Bearer <token>` on every API request.
+- The FastAPI backend verifies the token with `firebase-admin`, resolves the `firebase_uid` to a `users` row, and scopes all queries to that user.
+
+### Image Generation (Pollinations AI)
+
+Images are fetched at generation time using:
+
+```
+https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true
+```
+
+The raw binary response is stored in `blog_images.image_data` and served back to the frontend via a `/images/{id}` endpoint.
+
+### Observability (LangSmith)
+
+LangSmith tracing is enabled by setting the environment variables below — no code changes required. Every `app_graph.invoke()` call automatically emits a trace to your LangSmith project, capturing:
+
+- Node-level execution timeline (router → research → orchestrator → worker × N → reducer)
+- LLM call inputs/outputs and token counts for each ChatMistralAI invocation
+- Tavily tool call inputs and raw results
+- End-to-end latency and per-node duration
+- Any exceptions with full stack context
+
+Traces are viewable at `https://smith.langchain.com` under the configured project name.
 
 ## Requirements
 
-- Python 3.10+ recommended
+- Python 3.10+
+- Node.js 18+ (for Next.js frontend)
+- Supabase project (PostgreSQL connection string)
+- Firebase project (service account JSON for backend, web config for frontend)
 - API keys:
-  - MISTRAL_API_KEY (required for ChatMistralAI)
-  - TAVILY_API_KEY (required for web research mode)
-  - GOOGLE_API_KEY (optional, used only when image generation is requested)
+  - `MISTRAL_API_KEY` — required for ChatMistralAI
+  - `TAVILY_API_KEY` — required for web research mode
+  - `LANGSMITH_API_KEY` — required for LangSmith tracing
 
 ## Setup
 
-### 1) Create and activate a virtual environment
-
-Windows PowerShell:
+### 1. Backend — Python virtual environment
 
 ```powershell
 python -m venv venv
 (Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& .\venv\Scripts\Activate.ps1)
+pip install -r requirements.txt
 ```
 
-### 2) Install dependencies
+### 2. Frontend — Next.js
 
-```powershell
-pip install -r requirement.txt
+```bash
+cd frontend
+npm install
 ```
 
-If your requirements file encoding causes issues, open and save requirement.txt as UTF-8, then re-run install.
+### 3. Environment variables
 
-### 3) Configure environment variables
-
-Create a .env file in the project root:
+Create `.env` in the project root:
 
 ```env
+# LLM + Research
 MISTRAL_API_KEY=your_mistral_key
 TAVILY_API_KEY=your_tavily_key
-GOOGLE_API_KEY=your_google_key
+
+# LangSmith tracing
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langsmith_api_key
+LANGCHAIN_PROJECT=blogagent          # shows up as the project name in LangSmith UI
+
+# Supabase
+DATABASE_URL=postgresql://postgres:<password>@db.<project>.supabase.co:5432/postgres
+
+# Firebase (backend service account)
+FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
 ```
 
-Notes:
-- GOOGLE_API_KEY is optional.
-- If image generation fails, the app still produces markdown and inserts a failure note where image placeholders exist.
+Create `frontend/.env.local`:
 
-## Run the App
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-Start Streamlit:
+### 4. Database migrations
 
 ```powershell
-streamlit run frontend.py
+alembic upgrade head
 ```
 
-Open the local URL shown in terminal.
+Or run `Base.metadata.create_all(engine)` directly for dev.
 
-## Streamlit UI Overview
+## Running the App
 
-Sidebar:
-- Chats: Create a new chat and switch between conversations.
-- Generate:
-  - Topic input
-  - As-of date
-  - Generate Blog button
+Start the FastAPI backend:
 
-Main area:
-- Chat History
-- Tabs:
-  - Plan
-  - Evidence
-  - Markdown Preview
-  - Images
-  - Logs
+```powershell
+uvicorn app.main:app --reload
+```
 
-Behavior:
-- Backend runs once per Generate click.
-- Generate button is disabled while a request is in progress.
-- Each chat stores its own output/history/logs.
+Start the Next.js frontend:
 
-## Outputs
+```bash
+cd frontend
+npm run dev
+```
 
-- Markdown files: generated_blogs/<safe_title>.md
-- Image files: generated_blogs/images/<filename>
-- Markdown image links are written as images/<filename> so they resolve from generated_blogs context.
+Open `http://localhost:3000`.
+
+## Frontend Overview (Next.js)
+
+- `/` — redirect to login or dashboard
+- `/login` — Firebase Auth sign-in (email + Google)
+- `/dashboard` — chat sidebar + blog generation UI
+  - Sidebar: create new chat, switch between sessions
+  - Main: topic input, as-of date, Generate button
+  - Tabs: Plan · Evidence · Markdown Preview · Images · Logs
+
+Authentication state is managed via Firebase `onAuthStateChanged`; the ID token is refreshed automatically and attached to all fetch calls.
 
 ## Programmatic Backend Usage
 
-You can call the compiled graph directly:
+```python
+from run import run
+
+result = run("Your topic here")
+print(result["final"])  # final markdown
+```
+
+The `run()` helper calls the compiled LangGraph app:
 
 ```python
-from blogAgent import app
-
-out = app.invoke({
-    "topic": "Your topic",
+app_graph.invoke({
+    "topic": topic,
     "mode": "",
     "needs_research": False,
     "queries": [],
     "evidence": [],
     "plan": None,
-    "as_of": "2026-04-19",
-    "recency_days": 7,
     "sections": [],
     "merged_md": "",
     "md_with_placeholders": "",
     "image_specs": [],
+    "generated_images": [],
     "final": "",
 })
-
-print(out.get("final", ""))
-```
-
-There is also a helper:
-
-```python
-from blogAgent import run
-print(run("Topic")["final"])
 ```
 
 ## Troubleshooting
 
-### Evidence appears empty or malformed
+**Traces not appearing in LangSmith**
+- Confirm `LANGCHAIN_TRACING_V2=true` and `LANGCHAIN_API_KEY` are set before the process starts.
+- `LANGCHAIN_PROJECT` is optional but strongly recommended — without it, traces go to the default project and are easy to lose.
+- Tracing is fire-and-forget; a LangSmith outage will not block blog generation.
 
-- Ensure TAVILY_API_KEY is set.
-- The backend includes a deterministic fallback when LLM research JSON parsing fails.
+**Firebase token rejected (401)**
+- Confirm `FIREBASE_SERVICE_ACCOUNT_PATH` points to a valid service account JSON.
+- Ensure the Firebase project ID in the service account matches your frontend config.
 
-### Source domain is blank
+**Supabase connection refused**
+- Use the **direct** connection string (port 5432), not the pooler, for SQLAlchemy.
+- If on Supabase free tier, the DB may be paused — resume it in the dashboard.
 
-- Source is derived from URL domain.
-- If a result has no valid URL, it is skipped.
+**Evidence appears empty or malformed**
+- Ensure `TAVILY_API_KEY` is set and valid.
+- The backend includes a deterministic JSON fallback when LLM research parsing fails.
 
-### Task flags look wrong
+**Images not displaying**
+- Pollinations AI is a public, unauthenticated service — check network access.
+- Image generation errors are handled gracefully; a failure note is inserted in the markdown where the placeholder was.
 
-- Task schema requires:
-  - requires_research
-  - require_citations
-  - require_code
-- Planning prompt explicitly instructs the model to set these.
-
-### No images generated
-
-- Check GOOGLE_API_KEY.
-- Image generation errors are handled gracefully and do not block markdown output.
+**`blog_images.image_data` is large**
+- For production, consider storing images in Supabase Storage (object store) and saving only the public URL in the table instead of raw binary.
 
 ## Notes
 
-- The filename is requirement.txt (singular), not requirements.txt.
-- The output folder generated_blogs/ is git-ignored in this repo.
+- `generated_blogs/` is retained for local dev / CLI usage and is git-ignored.
+- The `content` column in `blog_sessions` is JSONB — it stores the full pipeline output (plan, evidence, sections, final markdown) as a single document for easy retrieval.
+- All Supabase queries are user-scoped via the resolved `users.id` from the Firebase UID — no row is readable by a different user.
+- LangSmith tracing is purely additive — disabling it (by unsetting `LANGCHAIN_TRACING_V2`) has zero effect on pipeline behavior or output.
