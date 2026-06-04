@@ -14,7 +14,7 @@ export function Header({
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 z-30 h-16 border-b border-white/10 bg-black/30 backdrop-blur-xl transition-all duration-300",
+        "fixed top-0 right-0 z-30 h-16 border-b border-white/10 bg-[#0a0a0a] transition-all duration-300",
         collapsed
           ? "left-[72px]"
           : "left-[280px]"
