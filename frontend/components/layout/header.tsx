@@ -8,49 +8,57 @@ interface HeaderProps {
   collapsed: boolean
 }
 
-export function Header({
-  collapsed,
-}: HeaderProps) {
+export function Header({ collapsed }: HeaderProps) {
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 z-30 h-16 border-b border-white/10 bg-[#0a0a0a] transition-all duration-300",
-        collapsed
-          ? "left-[72px]"
-          : "left-[280px]"
+        "fixed top-0 right-0 z-30 h-16 border-b-[3px] border-black bg-[#f5f0e8] transition-all duration-300",
+        collapsed ? "left-[72px]" : "left-[280px]"
       )}
     >
+      {/* Hatch stripe accent - same as hero */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[4px]"
+        style={{
+          background: "repeating-linear-gradient(90deg,#c8f135 0,#c8f135 16px,#000 16px,#000 20px)",
+        }}
+      />
+
       <div className="flex h-full items-center justify-between px-6">
 
-        {/* Left */}
+        {/* Left - Brand */}
         <div className="flex items-center gap-3">
+          {/* Black icon box */}
+          <div className="flex size-8 items-center justify-center border-[2px] border-black bg-black">
+            <Sparkles className="size-4 text-[#c8f135] stroke-[2.5px]" />
+          </div>
 
-         
-
-          <div>
-            <Link
-            href="/">
-            <h1 className="text-sm font-semibold tracking-wide text-white">
+          <Link href="/">
+            <h1
+              className="text-black uppercase tracking-[0.12em] hover:text-[#ff2d78] transition-colors"
+              style={{ fontFamily: "var(--font-bebas), sans-serif", fontSize: "22px" }}
+            >
               Blog Agent OS
             </h1>
-            </Link>
+          </Link>
 
-            
-          </div>
+         
+          
         </div>
 
-        {/* Right */}
+        {/* Right - Roadmap CTA */}
         <Link
           href="/roadmap"
           className="
-            rounded-2xl
-            border border-white/10
-            bg-white/[0.03]
-            px-4 py-2
-            text-sm text-zinc-300
-            transition
-            hover:bg-white/[0.06]
-            hover:text-white
+            border-[2px] border-black
+            bg-[#fce135]
+            px-4 py-1.5
+            font-mono text-[10px] font-black uppercase tracking-widest text-black
+            shadow-[3px_3px_0px_#000]
+            transition-all
+            hover:translate-x-[1px] hover:translate-y-[1px]
+            hover:bg-[#ff2d78] hover:text-white
+            hover:shadow-[2px_2px_0px_#000]
           "
         >
           Roadmap

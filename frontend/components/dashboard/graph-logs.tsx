@@ -20,62 +20,69 @@ export function GraphLogs({
   const lines = buildGraphLogLines(status, result, topic, error, phaseIndex)
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#050609] shadow-[0_30px_120px_rgba(0,0,0,0.36)]">
-      <div className="flex items-center justify-between border-b border-white/10 bg-[#1b2a41]/[0.035] px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-[#ffffff]">
-          <Terminal className="size-4 text-[#f5a31a]" />
-          Runtime Terminal
+<section className="overflow-hidden border-[3px] border-black bg-[#f5f0e8] shadow-[6px_6px_0px_#000]">
+
+  {/* Header */}
+  <div className="flex items-center justify-between border-b-[3px] border-black bg-[#ff2d78] px-4 py-3 text-white">
+    <div className="flex items-center gap-2 font-mono text-xs font-black uppercase tracking-widest">
+      <Terminal className="size-4 stroke-[3px]" />
+      Runtime Terminal
+    </div>
+
+    {/* Window dots */}
+    <div className="flex items-center gap-1.5">
+      <span className="size-3 border-[2px] border-black bg-white" />
+      <span className="size-3 border-[2px] border-black bg-[#fce135]" />
+      <span className="size-3 border-[2px] border-black bg-black" />
+    </div>
+  </div>
+
+  {/* Terminal body */}
+  <div className="dashboard-scrollbar relative max-h-[620px] overflow-auto bg-[#f5f0e8] p-4 font-mono text-xs text-black">
+    <div className="space-y-0.5">
+      {lines.map((line, index) => (
+        <div
+          className="grid grid-cols-[72px_100px_minmax(0,1fr)] gap-3 border-b border-black/10 px-2 py-2 font-bold transition-colors hover:bg-[#fce135]/30"
+          key={`${line.stamp}-${line.node}-${index}`}
+        >
+          <span className="font-medium text-gray-400">{line.stamp}</span>
+
+          <span className={cn("inline-flex items-center gap-1.5 font-black uppercase tracking-wider text-[11px]", toneClass(line.tone))}>
+            <Circle className="size-1.5 fill-current stroke-current" />
+            {line.node}
+          </span>
+
+          <span className="min-w-0 break-words font-medium text-black">
+            {line.message}
+          </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-rose-400/70" />
-          <span className="size-2.5 rounded-full bg-amber-300/70" />
-          <span className="size-2.5 rounded-full bg-emerald-300/70" />
-        </div>
-      </div>
-      <div className="dashboard-scrollbar relative max-h-[620px] overflow-auto p-4 font-mono text-[12px]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-teal-300/5 to-transparent" />
-        <div className="space-y-2">
-          {lines.map((line, index) => (
-            <div
-              className="grid grid-cols-[72px_92px_minmax(0,1fr)] gap-3 rounded-lg px-2 py-1.5 transition hover:bg-[#1b2a41]"
-              key={`${line.stamp}-${line.node}-${index}`}
-            >
-              <span className="text-[#e4e4e4]/60">{line.stamp}</span>
-              <span className={cn("inline-flex items-center gap-2", toneClass(line.tone))}>
-                <Circle className="size-2 fill-current" />
-                {line.node}
-              </span>
-              <span className="min-w-0 break-words text-[#e4e4e4]/80">
-                {line.message}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
+      ))}
+    </div>
+  </div>
+</section>
   )
 }
 
 function toneClass(tone: LogTone) {
   if (tone === "active") {
-    return "text-[#f5a31a]"
+    return "text-amber-600"
   }
 
   if (tone === "success") {
-    return "text-emerald-700"
+    return "text-emerald-600"
   }
 
   if (tone === "warning") {
-    return "text-amber-700"
+    return "text-orange-600"
   }
 
   if (tone === "error") {
-    return "text-rose-200"
+    return "text-[#ff007f]" // Neo Pink acts as our loud, high-contrast error indicator on light sheets
   }
 
   if (tone === "info") {
-    return "text-cyan-700"
+    return "text-sky-600"
   }
 
-  return "text-[#e4e4e4]/60"
+  return "text-gray-500"
 }

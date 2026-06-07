@@ -19,9 +19,7 @@ export function PlanView({
   plan?: BlogPlan | null
   status: ExecutionStatus
 }) {
-  if (!plan && status === "running") {
-    return <PanelSkeleton />
-  }
+  if (!plan && status === "running") return <PanelSkeleton />
 
   if (!plan) {
     return (
@@ -34,86 +32,86 @@ export function PlanView({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-3">
+    <div className="space-y-6 text-black">
+
+      {/* Stats Row */}
+      <div className="grid gap-4 md:grid-cols-3">
         <PlanStat label="Audience" value={plan.audience} />
-        <PlanStat label="Tone" value={plan.tone} />
-        <PlanStat label="Kind" value={plan.blog_kind.replace("_", " ")} />
+        <PlanStat label="Tone"     value={plan.tone} />
+        <PlanStat label="Kind"     value={plan.blog_kind.replace("_", " ")} />
       </div>
 
-      {plan.constraints.length > 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-[#1b2a41]/[0.035] p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[#ffffff]">
-            <Compass className="size-4 text-[#f5a31a]" />
+      {/* Constraints Block */}
+      {plan.constraints.length > 0 && (
+        <div className="border-[3px] border-black bg-[#f5f0e8] p-5 shadow-[4px_4px_0px_#000]">
+          <div className="mb-4 flex items-center gap-2 font-mono text-xs font-black uppercase tracking-widest text-black">
+            <Compass className="size-4 stroke-[3px] text-[#ff2d78]" />
             Constraints
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {plan.constraints.map((constraint) => (
               <span
-                className="rounded-full border border-white/10 bg-[#1b2a41]/60 px-3 py-1 text-xs text-[#e4e4e4]/80"
                 key={constraint}
+                className="border-[2px] border-black bg-[#fce135] px-3 py-1 font-mono text-xs font-black uppercase tracking-wider text-black shadow-[2px_2px_0px_#000]"
               >
                 {constraint}
               </span>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
 
-      <div className="space-y-3">
+      {/* Task Cards */}
+      <div className="space-y-5">
         {plan.tasks.map((task, index) => (
           <article
-            className="group rounded-2xl border border-white/10 bg-[#1b2a41]/[0.035] p-4 transition duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#1b2a41]/[0.055]"
             key={task.id}
+            className="group border-[3px] border-black bg-[#f5f0e8] p-5 shadow-[6px_6px_0px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#000]"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-teal-200 bg-[#f5a31a]/10 font-mono text-xs text-teal-800">
+            {/* Header */}
+            <div className="flex flex-col gap-4 border-b-[2px] border-black pb-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 gap-3.5">
+                {/* Index badge */}
+                <span className="flex size-9 shrink-0 items-center justify-center border-[2px] border-black bg-[#ff2d78] font-mono text-xs font-black text-white shadow-[2px_2px_0px_#000]">
                   {String(index + 1).padStart(2, "0")}
                 </span>
+
                 <div className="min-w-0">
-                  <h3 className="text-base font-semibold text-[#ffffff]">
+                  <h3 className="text-base font-black uppercase tracking-tight text-black sm:text-lg">
                     {task.title}
                   </h3>
-                  <p className="mt-1 text-sm leading-6 text-[#e4e4e4]/60">
+                  <p className="mt-1 text-sm font-bold leading-6 text-gray-700">
                     {task.goal}
                   </p>
                 </div>
               </div>
-              <span className="rounded-full border border-white/10 bg-[#1b2a41]/60 px-3 py-1 font-mono text-[11px] text-[#e4e4e4]/80">
+
+              {/* Word count stamp */}
+              <span className="self-start border-[2px] border-black bg-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-wider text-[#c8f135] shadow-[2px_2px_0px_#000]">
                 {task.target_words} words
               </span>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-              <ul className="space-y-2">
+            {/* Content Grid */}
+            <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+              {/* Bullets */}
+              <ul className="space-y-2.5">
                 {task.bullets.map((bullet) => (
                   <li
-                    className="flex gap-2 text-sm leading-6 text-[#e4e4e4]/80"
                     key={bullet}
+                    className="flex items-start gap-2.5 text-sm font-bold leading-6 text-black"
                   >
-                    <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-emerald-700/80" />
+                    <CheckCircle2 className="mt-1 size-4 shrink-0 stroke-[3px] text-[#ff2d78]" />
                     <span>{bullet}</span>
                   </li>
                 ))}
               </ul>
 
-              <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-                <TaskSignal
-                  active={task.requires_research}
-                  icon={Search}
-                  label="Research"
-                />
-                <TaskSignal
-                  active={task.require_citations}
-                  icon={Quote}
-                  label="Citations"
-                />
-                <TaskSignal
-                  active={task.require_code}
-                  icon={Code2}
-                  label="Code"
-                />
+              {/* Signal flags */}
+              <div className="grid grid-cols-3 gap-2 lg:grid-cols-1 lg:self-start">
+                <TaskSignal active={task.requires_research} icon={Search} label="Research"  />
+                <TaskSignal active={task.require_citations} icon={Quote}  label="Citations" />
+                <TaskSignal active={task.require_code}      icon={Code2}  label="Code"      />
               </div>
             </div>
           </article>
@@ -125,9 +123,11 @@ export function PlanView({
 
 function PlanStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#1b2a41]/[0.035] p-4">
-      <p className="text-[11px] font-medium uppercase text-[#e4e4e4]/60">{label}</p>
-      <p className="mt-2 text-sm font-medium capitalize text-[#ffffff]">
+    <div className="border-[3px] border-black bg-[#f5f0e8] p-4 shadow-[4px_4px_0px_#000]">
+      <p className="font-mono text-[10px] font-black uppercase tracking-widest text-gray-500">
+        {label}
+      </p>
+      <p className="mt-1 font-mono text-sm font-black capitalize text-black">
         {value}
       </p>
     </div>
@@ -146,13 +146,13 @@ function TaskSignal({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-xs",
+        "flex items-center gap-2 border-[2px] border-black px-3 py-1.5 font-mono text-[11px] font-black uppercase tracking-wider transition-all",
         active
-          ? "border-teal-200 bg-[#f5a31a]/10 text-teal-800"
-          : "border-white/10 bg-[#1b2a41]/60 text-[#e4e4e4]/60"
+          ? "bg-[#fce135] text-black shadow-[2px_2px_0px_#000]"
+          : "bg-black/5 text-gray-400 opacity-50 pointer-events-none"
       )}
     >
-      <Icon className="size-3.5" />
+      <Icon className={cn("size-3.5", active ? "stroke-[2.5px]" : "stroke-[2px]")} />
       <span>{label}</span>
     </div>
   )

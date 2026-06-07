@@ -114,100 +114,120 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center px-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#134e4a,transparent_60%)]" />
+<main className="min-h-screen bg-[#f5f0e8] text-black flex items-center justify-center px-6 relative overflow-hidden">
+  
+  {/* Background hatch texture */}
+  <div
+    className="pointer-events-none absolute inset-0 opacity-[0.04]"
+    style={{
+      backgroundImage: "repeating-linear-gradient(45deg, #000 0, #000 1px, transparent 0, transparent 50%)",
+      backgroundSize: "12px 12px",
+    }}
+  />
 
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 shadow-2xl">
-        {/* Logo */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="bg-teal-300 text-black p-3 rounded-2xl">
-            <Sparkles size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Blog Agent OS</h1>
-            <p className="text-sm text-zinc-400">Autonomous AI Workspace</p>
-          </div>
-        </div>
+  <div className="relative z-10 w-full max-w-md border-[3px] border-black bg-white shadow-[10px_10px_0px_#000] p-8">
 
-        {/* Heading */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-semibold">
-            {isSignup ? "Create account" : "Welcome back"}
-          </h2>
-          <p className="text-zinc-400 mt-2">
-            {isSignup
-              ? "Create your account to start generating blogs."
-              : "Sign in to continue building AI-powered blogs."}
-          </p>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {error}
-          </div>
-        )}
-
-        {/* Success */}
-        {success && (
-          <div className="mb-4 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
-            {success}
-          </div>
-        )}
-
-        {/* Form */}
-        <div className="space-y-4">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 outline-none focus:border-teal-300"
-          />
-
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 outline-none focus:border-teal-300"
-          />
-
-          <button
-            onClick={handleEmailAuth}
-            disabled={loading}
-            className="w-full rounded-2xl bg-teal-300 text-black font-semibold py-3 transition hover:scale-[1.02] hover:bg-teal-200 disabled:opacity-50"
-          >
-            {loading ? "Loading..." : isSignup ? "Create Account" : "Login"}
-          </button>
-
-          <div className="flex items-center gap-4 py-2">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-sm text-zinc-500">OR</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
-
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full rounded-2xl bg-white text-black font-medium py-3 transition hover:scale-[1.02] hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-3"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
-
-          <div className="text-center pt-4">
-            <button
-              onClick={() => { setIsSignup(!isSignup); setError(""); setSuccess(""); }}
-              className="text-teal-300 hover:underline"
-            >
-              {isSignup
-                ? "Already have an account? Login"
-                : "Don't have an account? Sign up"}
-            </button>
-          </div>
-        </div>
+    {/* Logo */}
+    <div className="flex items-center gap-3 mb-8">
+      <div className="flex size-12 items-center justify-center border-[2px] border-black bg-black shadow-[3px_3px_0px_#000]">
+        <Sparkles className="size-6 text-[#c8f135] stroke-[2.5px]" />
       </div>
-    </main>
+      <div>
+        <h1
+          className="uppercase tracking-[0.08em] text-black leading-none"
+          style={{ fontFamily: "var(--font-bebas), sans-serif", fontSize: "26px" }}
+        >
+          Blog Agent OS
+        </h1>
+        <p className="font-mono text-[10px] font-black uppercase tracking-widest text-gray-500 mt-0.5">
+          Autonomous AI Workspace
+        </p>
+      </div>
+    </div>
+
+    {/* Heading */}
+    <div className="mb-8 border-l-[4px] border-black pl-4">
+      <h2
+        className="uppercase tracking-tight text-black leading-none"
+        style={{ fontFamily: "var(--font-bebas), sans-serif", fontSize: "36px" }}
+      >
+        {isSignup ? "Create Account" : "Welcome Back"}
+      </h2>
+      <p className="font-mono text-xs font-bold text-gray-500 mt-1.5">
+        {isSignup
+          ? "Create your account to start generating blogs."
+          : "Sign in to continue building AI-powered blogs."}
+      </p>
+    </div>
+
+    {/* Error */}
+    {error && (
+      <div className="mb-4 flex items-center gap-2 border-[2px] border-black bg-[#ff2d78] px-4 py-3 font-mono text-xs font-black uppercase tracking-wider text-white shadow-[3px_3px_0px_#000]">
+        {error}
+      </div>
+    )}
+
+    {/* Success */}
+    {success && (
+      <div className="mb-4 flex items-center gap-2 border-[2px] border-black bg-[#c8f135] px-4 py-3 font-mono text-xs font-black uppercase tracking-wider text-black shadow-[3px_3px_0px_#000]">
+        {success}
+      </div>
+    )}
+
+    {/* Form */}
+    <div className="space-y-4">
+      <input
+        type="email"
+        placeholder="Enter your email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full border-[2px] border-black bg-[#f5f0e8] px-4 py-3 font-mono text-sm font-bold text-black placeholder:text-gray-400 outline-none focus:shadow-[3px_3px_0px_#000] transition-all"
+      />
+
+      <input
+        type="password"
+        placeholder="Enter your password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        className="w-full border-[2px] border-black bg-[#f5f0e8] px-4 py-3 font-mono text-sm font-bold text-black placeholder:text-gray-400 outline-none focus:shadow-[3px_3px_0px_#000] transition-all"
+      />
+
+      <button
+        onClick={handleEmailAuth}
+        disabled={loading}
+        className="w-full border-[2px] border-black bg-[#ff2d78] py-3 font-mono text-sm font-black uppercase tracking-wider text-white shadow-[4px_4px_0px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#000] disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? "Loading..." : isSignup ? "Create Account" : "Login"}
+      </button>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4 py-1">
+        <div className="h-[2px] flex-1 bg-black" />
+        <span className="font-mono text-[10px] font-black uppercase tracking-widest text-black">or</span>
+        <div className="h-[2px] flex-1 bg-black" />
+      </div>
+
+      {/* Google */}
+      <button
+        onClick={handleGoogleLogin}
+        disabled={loading}
+        className="w-full flex items-center justify-center gap-3 border-[2px] border-black bg-white py-3 font-mono text-sm font-black uppercase tracking-wider text-black shadow-[4px_4px_0px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#000] hover:bg-[#fce135] disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <GoogleIcon />
+        Continue with Google
+      </button>
+
+      {/* Toggle */}
+      <div className="text-center pt-2">
+        <button
+          onClick={() => { setIsSignup(!isSignup); setError(""); setSuccess(""); }}
+          className="font-mono text-xs font-black uppercase tracking-wider text-black underline underline-offset-4 hover:text-[#ff2d78] transition-colors"
+        >
+          {isSignup ? "Already have an account? Login" : "Don't have an account? Sign up"}
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
   );
 }

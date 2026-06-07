@@ -2,36 +2,49 @@ import { Image as ImageIcon, ImagePlus, ChevronDown } from "lucide-react"
 import { useState } from "react"
 import { EmptyState, PanelSkeleton } from "@/components/dashboard/empty-state"
 import { getImageSpecs } from "@/lib/blog-normalizers"
+import { cn } from "@/lib/utils"
 import type { BlogResult, ExecutionStatus } from "@/types/blog"
 
 function PromptExpander({ prompt }: { prompt: string }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+    <div className="border-[2px] border-black bg-white shadow-[4px_4px_0px_#000000] transition-all rounded-none">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-3 py-2.5 text-left transition hover:bg-white/[0.04]"
+        className={cn(
+          "flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors font-mono text-xs font-black uppercase tracking-wider rounded-none",
+          open 
+            ? "bg-[#ff007f] text-white border-b-[2px] border-black" 
+            : "bg-white text-black hover:bg-[#ff007f]/10"
+        )}
         aria-expanded={open}
       >
         <span className="flex items-center gap-2">
-          <span className="size-1.5 rounded-full bg-white/30" />
-          <span className="text-[11px] font-medium uppercase tracking-widest text-[#e4e4e4]/50">
+          <span className={cn(
+            "size-2 border border-black", 
+            open ? "bg-white" : "bg-black"
+          )} />
+          <span className="tracking-widest">
             Image prompt
           </span>
         </span>
         <ChevronDown
-          className={`size-3.5 text-white/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={cn(
+            "size-4 transition-transform duration-200 stroke-[3px]",
+            open ? "rotate-180 text-white" : "text-black"
+          )}
         />
       </button>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
+        className={cn(
+          "grid transition-all duration-200 ease-in-out",
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        )}
       >
         <div className="overflow-hidden">
-          <p className="border-t border-white/10 px-3 py-3 font-mono text-[11px] leading-5 text-[#e4e4e4]/60">
+          <p className="bg-[#fafafa] border-t border-black/10 px-4 py-3 font-mono text-xs font-medium leading-5 text-gray-800 break-words">
             {prompt}
           </p>
         </div>
@@ -73,58 +86,66 @@ export function ImagesView({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {images.map((image, index) => (
-        <article
-          className="group overflow-hidden rounded-2xl border border-white/10 bg-[#1b2a41]/[0.035] transition duration-300 hover:-translate-y-1 hover:border-fuchsia-200 hover:bg-[#1b2a41]/[0.06]"
-          key={`${image.filename}-${index}`}
-        >
-          <div className="relative aspect-[16/9] overflow-hidden border-b border-white/10">
-            {image.image_data ? (
-              <img
-                src={`data:image/png;base64,${image.image_data}`}
-                alt={image.alt}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <>
-                <div className="absolute inset-0 runtime-grid opacity-20" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_80%_0%,rgba(217,70,239,0.2),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
-                <div className="absolute bottom-4 left-4 flex items-center gap-2 text-[#ffffff]">
-                  <span className="flex size-10 items-center justify-center rounded-2xl border border-white/10 bg-[#1b2a41]/90 backdrop-blur">
-                    <ImagePlus className="size-4" />
-                  </span>
-                  <span className="text-sm font-medium">Visual asset {index + 1}</span>
-                </div>
-              </>
-            )}
-
-            <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-[#1b2a41]/90 px-3 py-1 font-mono text-[11px] text-[#e4e4e4]/90 backdrop-blur">
-              {image.size || "1024x1024"}
+  <div className="grid gap-6 lg:grid-cols-2 text-black">
+  {images.map((image, index) => (
+    <article
+      className="group overflow-hidden border-[3px] border-black bg-[#f5f0e8] shadow-[6px_6px_0px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#000]"
+      key={`${image.filename}-${index}`}
+    >
+      {/* Image frame */}
+      <div className="relative aspect-[16/9] overflow-hidden border-b-[3px] border-black bg-black/5">
+        {image.image_data ? (
+          <img
+            src={`data:image/png;base64,${image.image_data}`}
+            alt={image.alt}
+            className="h-full w-full object-cover transition-all grayscale-[15%] group-hover:grayscale-0"
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 select-none">
+            <div className="pointer-events-none absolute inset-0 runtime-grid opacity-[0.06]" />
+            <div className="relative z-10 flex flex-col items-center gap-2">
+              <div className="flex size-12 items-center justify-center border-[2px] border-black bg-[#fce135] text-black shadow-[3px_3px_0px_#000]">
+                <ImagePlus className="size-5 stroke-[2.5px]" />
+              </div>
+              <span className="mt-2 font-mono text-xs font-black uppercase tracking-widest text-black">
+                Visual asset {index + 1}
+              </span>
             </div>
-
-            <span className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 animate-scanline" />
           </div>
+        )}
 
-          <div className="space-y-3 p-4">
-            <div className="min-w-0">
-              <h3 className="line-clamp-2 text-base font-semibold text-[#ffffff]">
-                {image.alt}
-              </h3>
-              <p className="mt-1 truncate font-mono text-[11px] text-[#e4e4e4]/60">
-                {image.filename}
-              </p>
-            </div>
+        {/* Resolution tag */}
+        <div className="absolute left-3 top-3 z-20 border-[2px] border-black bg-black px-2 py-0.5 font-mono text-[10px] font-black tracking-wider text-[#c8f135] shadow-[2px_2px_0px_#fce135]">
+          {image.size || "1024x1024"}
+        </div>
+      </div>
 
-            {image.caption ? (
-              <p className="text-sm leading-6 text-[#e4e4e4]/60">{image.caption}</p>
-            ) : null}
+      {/* Metadata */}
+      <div className="space-y-4 p-5 bg-[#f5f0e8]">
+        <div className="min-w-0">
+          <h3 className="line-clamp-2 font-mono text-sm font-black uppercase tracking-tight text-black">
+            {image.alt}
+          </h3>
+          <p className="mt-1 truncate font-mono text-[11px] font-bold text-gray-400">
+            {image.filename}
+          </p>
+        </div>
 
-            {image.prompt ? <PromptExpander prompt={image.prompt} /> : null}
+        {image.caption && (
+          <p className="border-l-[3px] border-black pl-3 py-0.5 text-xs font-semibold leading-5 text-gray-700">
+            {image.caption}
+          </p>
+        )}
+
+        {image.prompt && (
+          <div className="pt-1">
+            <PromptExpander prompt={image.prompt} />
           </div>
-        </article>
-      ))}
-    </div>
+        )}
+      </div>
+    </article>
+  ))}
+</div>
   )
 }

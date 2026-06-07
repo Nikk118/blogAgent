@@ -16,15 +16,21 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#1b2a41]/[0.025] p-8 text-center",
+        "flex min-h-[360px] flex-col items-center justify-center border-[3px] border-dashed border-black bg-white p-8 text-center rounded-none shadow-[4px_4px_0px_#000000]",
         className
       )}
     >
-      <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-white/10 bg-[#1b2a41] text-[#e4e4e4]/90 shadow-2xl">
-        <Icon className="size-5" />
+      {/* Icon Frame - High Contrast Neo Pink Stamp */}
+      <div className="mb-5 flex size-12 items-center justify-center border-[2px] border-black bg-[#ff007f] text-white shadow-[3px_3px_0px_#000000] rounded-none">
+        <Icon className="size-5 stroke-[2.5px]" />
       </div>
-      <h3 className="text-sm font-medium text-[#ffffff]">{title}</h3>
-      <p className="mt-2 max-w-md text-sm leading-6 text-[#e4e4e4]/60">
+
+      {/* Typography Headers */}
+      <h3 className="font-mono text-sm font-black uppercase tracking-wider text-black">
+        {title}
+      </h3>
+      
+      <p className="mt-2 max-w-md text-xs font-bold leading-6 text-gray-700">
         {description}
       </p>
     </div>
@@ -39,7 +45,7 @@ export function SkeletonLine({
   return (
     <div
       className={cn(
-        "h-3 rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(255,255,255,0.12),rgba(255,255,255,0.04))] animate-soft-shimmer",
+        "bg-gray-200 animate-pulse rounded-none",
         className
       )}
     />
@@ -48,17 +54,23 @@ export function SkeletonLine({
 
 export function PanelSkeleton() {
   return (
-    <div className="space-y-5 rounded-2xl border border-white/10 bg-[#1b2a41]/[0.025] p-6">
-      <SkeletonLine className="h-5 w-1/3" />
+    <div className="space-y-5 border-[3px] border-black bg-white p-6 shadow-[6px_6px_0px_#000000] rounded-none">
+      
+      {/* Title Skeleton: Stark gray block with an aggressive border */}
+      <SkeletonLine className="h-6 w-1/3 border-[2px] border-black bg-gray-200" />
+      
+      {/* Cards Skeletons: Adding a faint neo-pink wash to the loading cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <SkeletonLine className="h-28" />
-        <SkeletonLine className="h-28" />
-        <SkeletonLine className="h-28" />
+        <SkeletonLine className="h-28 border-[2px] border-black bg-[#ff007f]/10" />
+        <SkeletonLine className="h-28 border-[2px] border-black bg-[#ff007f]/10" />
+        <SkeletonLine className="h-28 border-[2px] border-black bg-[#ff007f]/10" />
       </div>
+      
+      {/* Text Block Skeletons */}
       <div className="space-y-3">
-        <SkeletonLine className="w-full" />
-        <SkeletonLine className="w-10/12" />
-        <SkeletonLine className="w-8/12" />
+        <SkeletonLine className="h-4 w-full border-[2px] border-black bg-gray-200" />
+        <SkeletonLine className="h-4 w-10/12 border-[2px] border-black bg-gray-200" />
+        <SkeletonLine className="h-4 w-8/12 border-[2px] border-black bg-gray-200" />
       </div>
     </div>
   )

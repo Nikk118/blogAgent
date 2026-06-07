@@ -5,51 +5,88 @@ import { cn } from "@/lib/utils"
 import type { TimelineNode } from "@/types/blog"
 
 export function ExecutionTimeline({ nodes }: { nodes: TimelineNode[] }) {
-  return (
-    <section className="glass-panel rounded-2xl p-4">
-      <div className="mb-5 flex items-center justify-between">
+return (
+    <section className="border-[3px] border-black bg-white p-5 shadow-[6px_6px_0px_#000000]">
+      
+      {/* Header section with a solid bottom border splitting it */}
+      <div className="mb-6 flex items-center justify-between border-b-[3px] border-black pb-4">
         <div>
-          <p className="text-sm font-semibold text-zinc-100">Execution Graph</p>
-          <p className="mt-1 text-xs text-zinc-500">LangGraph node timeline</p>
+          <p className="text-lg font-black uppercase tracking-tight text-black">Execution Graph</p>
+          <p className="mt-0.5 font-mono text-xs font-bold text-gray-600">LangGraph node timeline</p>
         </div>
-        <div className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-teal-200">
-          <Workflow className="size-4" />
+        {/* Highlighter Yellow Icon Box */}
+        <div className="flex size-10 items-center justify-center border-[2px] border-black bg-[#fce166] text-black shadow-[2px_2px_0px_#000000]">
+          <Workflow className="size-5" />
         </div>
       </div>
 
-      <div className="relative space-y-1">
-        <div className="absolute bottom-7 left-3.5 top-7 w-px bg-gradient-to-b from-teal-300/40 via-white/10 to-transparent" />
+      <div className="relative space-y-3">
+        {/* Thick, solid structural timeline track (Replaced the soft gradient line) */}
+        <div className="absolute bottom-8 left-[15px] top-8 w-[3px] bg-black" />
+        
         {nodes.map((node) => (
-          <div className="relative flex gap-3 py-2" key={node.id}>
-            <TimelineStatusIcon status={node.status} />
+          <div className="relative flex gap-4 py-1" key={node.id}>
+            
+            {/* Wrapper to make sure the external status icon layers correctly over the line */}
+            <div className="relative z-10 flex shrink-0 items-center justify-center">
+              <TimelineStatusIcon status={node.status} />
+            </div>
+            
+            {/* Node Card Box */}
             <div
               className={cn(
-                "min-w-0 flex-1 rounded-xl border p-3 transition duration-300",
+                "min-w-0 flex-1 border-[2px] border-black p-4 transition-all duration-200",
+                
+                // Running Node: FLASHING NEO PINK with stark white text
                 node.status === "running" &&
-                  "border-teal-300/20 bg-teal-300/10",
+                  "bg-[#ff007f] text-white shadow-[4px_4px_0px_#000000] font-bold animate-[pulse_1.5s_infinite]",
+                
+                // Completed Node: Flat Mint Green
                 node.status === "completed" &&
-                  "border-emerald-300/15 bg-emerald-300/[0.06]",
+                  "bg-[#cff0e0] text-black shadow-[4px_4px_0px_#000000]",
+                
+                // Failed Node: Raw High-Contrast Red
                 node.status === "failed" &&
-                  "border-rose-300/20 bg-rose-300/10",
+                  "bg-[#ff4d4d] text-white shadow-[4px_4px_0px_#000000]",
+                
+                // Queued Node: Clean Base White
                 node.status === "queued" &&
-                  "border-white/8 bg-white/[0.025]",
+                  "bg-white text-black shadow-[2px_2px_0px_#000000]",
+                
+                // Skipped Node: Receded structural Gray
                 node.status === "skipped" &&
-                  "border-amber-300/15 bg-amber-300/[0.05]"
+                  "bg-gray-100 text-gray-400 border-gray-400 shadow-none"
               )}
             >
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-medium text-zinc-100">
+                <h3 className={cn(
+                  "text-sm font-black uppercase tracking-tight",
+                  node.status === "running" || node.status === "failed" ? "text-white" : "text-black"
+                )}>
                   {node.label}
                 </h3>
-                <span className="rounded-full border border-white/10 px-2 py-0.5 font-mono text-[10px] uppercase text-zinc-500">
+                
+                {/* Node Status Badge */}
+                <span className={cn(
+                  "border-[2px] border-black px-2 py-0.5 font-mono text-[10px] font-black uppercase shadow-[1px_1px_0px_#000000]",
+                  node.status === "running" || node.status === "failed" ? "bg-white text-black" : "bg-black text-white"
+                )}>
                   {node.status}
                 </span>
               </div>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">
+              
+              <p className={cn(
+                "mt-2 text-xs font-medium leading-5",
+                node.status === "running" || node.status === "failed" ? "text-white/90" : "text-gray-700"
+              )}>
                 {node.description}
               </p>
+              
               {node.meta ? (
-                <p className="mt-2 truncate font-mono text-[11px] text-zinc-400">
+                <p className={cn(
+                  "mt-3 truncate font-mono text-[11px] border-t border-black/10 pt-2",
+                  node.status === "running" || node.status === "failed" ? "text-white/80" : "text-gray-500"
+                )}>
                   {node.meta}
                 </p>
               ) : null}

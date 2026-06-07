@@ -2,31 +2,15 @@
 
 import Link from "next/link"
 import remarkGfm from "remark-gfm"
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  FileText,
-} from "lucide-react"
-
+import { Check, Copy, ExternalLink, FileText } from "lucide-react"
 import { useState } from "react"
+import ReactMarkdown, { type Components } from "react-markdown"
 
-import ReactMarkdown, {
-  type Components,
-} from "react-markdown"
-
-import {
-  EmptyState,
-  PanelSkeleton,
-} from "@/components/dashboard/empty-state"
-
+import { EmptyState, PanelSkeleton } from "@/components/dashboard/empty-state"
 import { Button } from "@/components/ui/button"
-
 import { cn } from "@/lib/utils"
-
 import type { ExecutionStatus } from "@/types/blog"
 
-// ✅ image map type: filename -> base64 string
 type ImageMap = Record<string, string>
 
 export function MarkdownPreview({
@@ -40,7 +24,7 @@ export function MarkdownPreview({
 }) {
   if (!markdown && status === "running") {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
+      <div className="border-[3px] border-black bg-white p-6 shadow-[6px_6px_0px_#000000] rounded-none">
         <PanelSkeleton />
       </div>
     )
@@ -57,28 +41,34 @@ export function MarkdownPreview({
   }
 
   return (
-    <article className="rounded-2xl border border-white/10 bg-[#07090e]/82 p-5 shadow-[0_30px_120px_rgba(0,0,0,0.34)] sm:p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <article className="border-[3px] border-black bg-white p-5 shadow-[6px_6px_0px_#000000] sm:p-8 rounded-none">
+      
+      {/* Header Container - Split with a clean structural border */}
+      <div className="mb-6 flex flex-col gap-4 border-b-[3px] border-black pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-sm font-medium text-zinc-200">
+          <h2 className="font-mono text-lg font-black uppercase tracking-tight text-black">
             Markdown Preview
           </h2>
-          <p className="text-xs text-zinc-500">
+          <p className="mt-0.5 font-mono text-xs font-bold text-gray-500">
             Generated article artifact
           </p>
         </div>
-        <Link href="/blog">
+        
+        {/* Action Button - Heavy Neo-Brutalist Neo Pink Link */}
+        <Link href="/blog" className="shrink-0">
           <Button
-            variant="outline"
-            className="border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+            className="w-full border-[2px] border-black bg-[#ff007f] px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-[4px_4px_0px_#000000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#000000] hover:bg-[#ff007f] sm:w-auto rounded-none"
           >
-            <ExternalLink className="mr-2 size-4" />
+            <ExternalLink className="mr-2 size-4 stroke-[3px]" />
             View Full Blog
           </Button>
         </Link>
       </div>
 
-      <MarkdownRenderer markdown={markdown} images={images} />
+      {/* Article Content Display Container */}
+      <div className="text-black max-w-none">
+        <MarkdownRenderer markdown={markdown} images={images} />
+      </div>
     </article>
   )
 }
@@ -89,11 +79,8 @@ export function MarkdownRenderer({
 }: {
   markdown: string
   images?: ImageMap
-  
 }) {
-  console.log(markdown)
   return (
-    
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={makeMarkdownComponents(images)}
@@ -103,45 +90,42 @@ export function MarkdownRenderer({
   )
 }
 
-// ✅ factory function so images map is available inside components
 function makeMarkdownComponents(images: ImageMap): Components {
   return {
     ...markdownComponents,
 
     img({ alt, src }) {
-  const source = typeof src === "string" ? src.trim() : ""
+      const source = typeof src === "string" ? src.trim() : ""
 
-  if (
-    !source ||
-    source.includes("IMAGE GENERATION FAILED") ||
-    source.includes("RESOURCE_EXHAUSTED") ||
-    source.includes("ERROR:") ||
-    source.includes("Quota")
-  ) {
-    return null
-  }
+      if (
+        !source ||
+        source.includes("IMAGE GENERATION FAILED") ||
+        source.includes("RESOURCE_EXHAUSTED") ||
+        source.includes("ERROR:") ||
+        source.includes("Quota")
+      ) {
+        return null
+      }
 
-  const filename = source.replace("images/", "").split("/").pop() || ""
-  const base64 = images[filename]
-  const resolvedSrc = base64
-    ? `data:image/png;base64,${base64}`
-    : source
+      const filename = source.replace("images/", "").split("/").pop() || ""
+      const base64 = images[filename]
+      const resolvedSrc = base64 ? `data:image/png;base64,${base64}` : source
 
-  return (
-    <span className="my-8 block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
-      <img
-        src={resolvedSrc}
-        alt={alt || "Generated image"}
-        className="aspect-[16/9] w-full object-cover"
-      />
-      {alt ? (
-        <span className="block border-t border-white/10 px-4 py-3 text-sm text-zinc-500">
-          {alt}
+      return (
+        <span className="my-6 block overflow-hidden border-[3px] border-black bg-white shadow-[4px_4px_0px_#000000] rounded-none">
+          <img
+            src={resolvedSrc}
+            alt={alt || "Generated image"}
+            className="aspect-[16/9] w-full object-cover border-b-[2px] border-black grayscale-[15%] hover:grayscale-0 transition-all"
+          />
+          {alt ? (
+            <span className="block bg-[#fafafa] px-4 py-2.5 font-mono text-xs font-bold text-gray-700">
+              {alt}
+            </span>
+          ) : null}
         </span>
-      ) : null}
-    </span>
-  )
-},
+      )
+    },
   }
 }
 
@@ -149,7 +133,7 @@ const markdownComponents: Components = {
   a({ children, href }) {
     return (
       <a
-        className="font-medium text-teal-200 underline decoration-teal-200/30 underline-offset-4 transition hover:text-teal-100 hover:decoration-teal-100"
+        className="font-black text-black underline decoration-[#ff007f] decoration-[3px] underline-offset-4 transition-all hover:bg-[#ff007f]/10"
         href={href}
         rel="noreferrer"
         target="_blank"
@@ -161,7 +145,7 @@ const markdownComponents: Components = {
 
   blockquote({ children }) {
     return (
-      <blockquote className="my-6 rounded-2xl border border-teal-300/15 bg-teal-300/[0.055] px-5 py-4 text-zinc-300">
+      <blockquote className="my-6 border-l-[4px] border-black bg-[#fce166]/10 px-5 py-4 font-medium text-gray-800 rounded-none italic">
         {children}
       </blockquote>
     )
@@ -176,7 +160,7 @@ const markdownComponents: Components = {
     }
 
     return (
-      <code className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.9em] text-teal-100">
+      <code className="border border-black bg-gray-100 px-1.5 py-0.5 font-mono text-[0.9em] font-black text-black rounded-none">
         {children}
       </code>
     )
@@ -184,7 +168,7 @@ const markdownComponents: Components = {
 
   h1({ children }) {
     return (
-      <h1 className="mb-6 mt-0 text-balance text-4xl font-semibold leading-tight text-zinc-50">
+      <h1 className="mb-6 mt-4 font-mono text-3xl font-black uppercase tracking-tight text-black border-b-[2px] border-black pb-2">
         {children}
       </h1>
     )
@@ -192,7 +176,7 @@ const markdownComponents: Components = {
 
   h2({ children }) {
     return (
-      <h2 className="mb-4 mt-10 border-t border-white/10 pt-7 text-2xl font-semibold tracking-tight text-zinc-50">
+      <h2 className="mb-4 mt-8 border-b-[2px] border-black/20 pb-1 font-mono text-xl font-black uppercase tracking-tight text-black">
         {children}
       </h2>
     )
@@ -200,23 +184,23 @@ const markdownComponents: Components = {
 
   h3({ children }) {
     return (
-      <h3 className="mb-3 mt-7 text-xl font-semibold text-zinc-100">
+      <h3 className="mb-3 mt-6 font-mono text-base font-black uppercase text-black">
         {children}
       </h3>
     )
   },
 
   hr() {
-    return <hr className="my-9 border-white/10" />
+    return <hr className="my-8 border-t-[2px] border-black" />
   },
 
   li({ children }) {
-    return <li className="pl-1 text-zinc-300">{children}</li>
+    return <li className="pl-1 font-medium text-black">{children}</li>
   },
 
   ol({ children }) {
     return (
-      <ol className="my-5 list-decimal space-y-2 pl-6 marker:text-teal-200/80">
+      <ol className="my-4 list-decimal space-y-2 pl-6 font-mono text-sm font-bold text-black marker:font-black">
         {children}
       </ol>
     )
@@ -224,7 +208,7 @@ const markdownComponents: Components = {
 
   p({ children }) {
     return (
-      <p className="my-4 text-[15px] leading-7 text-zinc-300">
+      <p className="my-4 text-sm font-medium leading-7 text-gray-800">
         {children}
       </p>
     )
@@ -236,29 +220,29 @@ const markdownComponents: Components = {
 
   strong({ children }) {
     return (
-      <strong className="font-semibold text-zinc-50">{children}</strong>
+      <strong className="font-black text-black bg-[#fce166]/30 px-0.5">{children}</strong>
     )
   },
 
   table({ children }) {
     return (
-      <div className="dashboard-scrollbar my-7 overflow-x-auto rounded-2xl border border-white/10">
-        <table className="w-full border-collapse text-sm">{children}</table>
+      <div className="dashboard-scrollbar my-6 overflow-x-auto border-[2px] border-black shadow-[4px_4px_0px_#000000] rounded-none">
+        <table className="w-full border-collapse text-left text-sm">{children}</table>
       </div>
     )
   },
 
   tbody({ children }) {
-    return <tbody className="divide-y divide-white/10">{children}</tbody>
+    return <tbody className="divide-y border-black divide-black/10 bg-white">{children}</tbody>
   },
 
   td({ children }) {
-    return <td className="px-4 py-3 text-zinc-400">{children}</td>
+    return <td className="px-4 py-3 font-medium text-gray-800">{children}</td>
   },
 
   th({ children }) {
     return (
-      <th className="bg-white/[0.04] px-4 py-3 text-left text-xs font-medium uppercase text-zinc-300">
+      <th className="bg-black border-b border-black px-4 py-2.5 font-mono text-xs font-black uppercase tracking-wider text-white">
         {children}
       </th>
     )
@@ -266,12 +250,13 @@ const markdownComponents: Components = {
 
   ul({ children }) {
     return (
-      <ul className="my-5 list-disc space-y-2 pl-6 marker:text-teal-200/80">
+      <ul className="my-4 list-disc space-y-2 pl-6 text-black marker:text-black">
         {children}
       </ul>
     )
   },
 }
+
 function CodeBlock({
   code,
   language,
@@ -289,27 +274,26 @@ function CodeBlock({
   }
 
   return (
-    <div className="my-7 overflow-hidden rounded-2xl border border-white/10 bg-[#050609] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-      <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.035] px-4 py-2.5">
-        <span className="font-mono text-[11px] uppercase text-zinc-500">
+    <div className="my-6 overflow-hidden border-[3px] border-black bg-white shadow-[5px_5px_0px_#000000] rounded-none">
+      <div className="flex items-center justify-between border-b-[2px] border-black bg-[#fafafa] px-4 py-2">
+        <span className="font-mono text-xs font-black uppercase tracking-wider text-black">
           {language}
         </span>
         <Button
           className={cn(
-            "h-7 rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100",
-            copied && "text-emerald-200"
+            "h-7 rounded-none border-[2px] border-black bg-white px-3 font-mono text-[11px] font-black uppercase text-black shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#000000] hover:bg-white",
+            copied && "bg-[#fce166] hover:bg-[#fce166]"
           )}
           onClick={copyCode}
           size="sm"
           type="button"
-          variant="ghost"
         >
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          {copied ? <Check className="size-3.5 stroke-[3px]" /> : <Copy className="size-3.5 stroke-[3px]" />}
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <pre className="dashboard-scrollbar overflow-x-auto p-4 text-[13px] leading-6">
-        <code className="font-mono text-zinc-300">{code}</code>
+      <pre className="dashboard-scrollbar overflow-x-auto bg-[#fafafa] p-4 text-xs font-medium leading-6 text-black">
+        <code className="font-mono">{code}</code>
       </pre>
     </div>
   )

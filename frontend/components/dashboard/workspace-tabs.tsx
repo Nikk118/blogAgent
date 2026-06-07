@@ -14,9 +14,6 @@ import { PlanView } from "@/components/dashboard/plan-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { BlogResult, ExecutionStatus } from "@/types/blog"
 
-
-// Build image map from result
-
 export function WorkspaceTabs({
   error,
   phaseIndex,
@@ -30,64 +27,35 @@ export function WorkspaceTabs({
   status: ExecutionStatus
   topic: string
 }) {
-
-  // Build image map from result
-
-
-const imageMap = (
-  result?.generated_images ?? []
-).reduce(
-  (acc, img) => {
-    if (img.image_data) {
-      acc[img.filename] = img.image_data
-    }
+  const imageMap = (result?.generated_images ?? []).reduce((acc, img) => {
+    if (img.image_data) acc[img.filename] = img.image_data
     return acc
-  },
-  {} as Record<string, string>
-)
-
-
+  }, {} as Record<string, string>)
 
   return (
-    <Tabs
-      defaultValue="markdown"
-      className="flex w-full min-w-0 flex-col gap-5"
-    >
-      <TabsList
-        className="dashboard-scrollbar flex h-auto w-full shrink-0 justify-start gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035] p-1.5"
-        variant="line"
-      >
-        <TabTrigger icon={LayoutDashboard} label="Plan" value="plan" />
-        <TabTrigger icon={Database} label="Evidence" value="evidence" />
-        <TabTrigger icon={FileText} label="Markdown Preview" value="markdown" />
-        <TabTrigger icon={ImageIcon} label="Images" value="images" />
-        <TabTrigger icon={Terminal} label="Graph Logs" value="logs" />
+    <Tabs defaultValue="markdown" className="flex w-full min-w-0 flex-col gap-6">
+      <TabsList className="dashboard-scrollbar flex h-auto w-full shrink-0 justify-start gap-2 overflow-x-auto rounded-none border-[3px] border-black bg-[#f5f0e8] p-2 shadow-[6px_6px_0px_#000]">
+        <TabTrigger icon={LayoutDashboard} label="Plan"            value="plan"     />
+        <TabTrigger icon={Database}        label="Evidence"        value="evidence" />
+        <TabTrigger icon={FileText}        label="Markdown Preview" value="markdown" />
+        <TabTrigger icon={ImageIcon}       label="Images"          value="images"   />
+        <TabTrigger icon={Terminal}        label="Graph Logs"      value="logs"     />
       </TabsList>
 
-      <TabsContent className="w-full min-w-0" value="plan">
+      <TabsContent className="w-full min-w-0 focus-visible:outline-none" value="plan">
         <PlanView plan={result?.plan} status={status} />
       </TabsContent>
-      <TabsContent className="w-full min-w-0" value="evidence">
+      <TabsContent className="w-full min-w-0 focus-visible:outline-none" value="evidence">
         <EvidenceView result={result} status={status} />
       </TabsContent>
-      <TabsContent className="w-full min-w-0" value="markdown">
-  <MarkdownPreview 
-    markdown={result?.final} 
-    status={status}
-    images={imageMap}  // ✅ add this
-  />
-</TabsContent>
-      <TabsContent className="w-full min-w-0" value="images">
+      <TabsContent className="w-full min-w-0 focus-visible:outline-none" value="markdown">
+        <MarkdownPreview markdown={result?.final} status={status} images={imageMap} />
+      </TabsContent>
+      <TabsContent className="w-full min-w-0 focus-visible:outline-none" value="images">
         <ImagesView result={result} status={status} />
       </TabsContent>
-      <TabsContent className="w-full min-w-0" value="logs">
-        <GraphLogs
-          error={error}
-          phaseIndex={phaseIndex}
-          result={result}
-          status={status}
-          topic={topic}
-        />
+      <TabsContent className="w-full min-w-0 focus-visible:outline-none" value="logs">
+        <GraphLogs error={error} phaseIndex={phaseIndex} result={result} status={status} topic={topic} />
       </TabsContent>
     </Tabs>
   )
@@ -98,26 +66,32 @@ function TabTrigger({
   label,
   value,
 }: {
-  icon: typeof FileText
+  icon: any
   label: string
   value: string
 }) {
   return (
     <TabsTrigger
-      className="
-h-10 flex-none rounded-xl border border-transparent px-3 text-xs
-text-zinc-500 transition
-hover:bg-white/[0.04]
-hover:text-zinc-200
-
-data-[state=active]:border-cyan-400/50
-data-[state=active]:bg-cyan-500/15
-data-[state=active]:text-white
-data-[state=active]:shadow-[0_0_25px_rgba(6,182,212,0.35)]
-"
       value={value}
+      className="
+        flex h-10 items-center gap-2
+        border-[2px] border-black
+        px-4
+        font-mono text-xs font-black uppercase tracking-wider text-black
+        rounded-none
+        bg-white
+        shadow-[2px_2px_0px_#000]
+        transition-all
+        hover:bg-[#fce135]
+        hover:translate-x-[1px] hover:translate-y-[1px]
+        hover:shadow-[1px_1px_0px_#000]
+        data-[state=active]:bg-[#fce135]
+        data-[state=active]:shadow-[0px_0px_0px_#000]
+        data-[state=active]:translate-x-[2px]
+        data-[state=active]:translate-y-[2px]
+      "
     >
-      <Icon className="size-4" />
+      <Icon className="size-4 stroke-[2.5px]" />
       <span>{label}</span>
     </TabsTrigger>
   )
