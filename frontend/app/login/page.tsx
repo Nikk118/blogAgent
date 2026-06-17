@@ -56,7 +56,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
 
   const fetchCurrentUser = async (token: string) => {
-    const response = await axios.get("http://localhost:8000/auth/me", {
+    const response = await axios.get("${process.env.NEXT_PUBLIC_API_URL}/auth/me", {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
@@ -64,7 +64,7 @@ export default function LoginPage() {
 
   const syncUser = async (token: string) => {
     const response = await axios.post(
-      "http://localhost:8000/sync-user",
+      "${process.env.NEXT_PUBLIC_API_URL}/sync-user",
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     );
