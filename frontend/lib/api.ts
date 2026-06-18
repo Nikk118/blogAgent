@@ -5,7 +5,7 @@ import { auth } from "@/lib/firebase"
 import type { BlogResponse } from "@/types/blog"
 
 const API = axios.create({
-  baseURL: "http://127.0.0.1:8000",
+  baseURL: "https://blog-agent-2h46.onrender.com",
 })
 
 async function getAuthToken() {
