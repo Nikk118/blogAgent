@@ -2,7 +2,8 @@ import os
 import json
 import firebase_admin
 from firebase_admin import credentials, auth
-
+from dotenv import load_dotenv
+load_dotenv()
 service_account_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_PATH")
 service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
 
