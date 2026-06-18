@@ -111,13 +111,29 @@ export function BlogWorkspace() {
   // Operational Request Dispatcher
   const handleGenerate = useCallback(async () => {
     const cleanTopic = draftTopic.trim()
-
     if (!cleanTopic || status === "running") return
 
     const sessionId = startGeneration(cleanTopic)
 
     try {
       const data = await generateBlog(cleanTopic)
+      
+      // Refresh all blogs to get images from DB
+      const blogs = await getBlogs()
+      const mappedSessions = blogs.map((blog: any) => ({
+        id: String(blog.id),
+        topic: blog.title,
+        title: blog.title,
+        status: "completed",
+        result: {
+          ...blog.content,
+          generated_images: blog.generated_images,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+      setSessions(mappedSessions)
+
       completeGeneration(
         sessionId,
         data.result,
@@ -126,7 +142,7 @@ export function BlogWorkspace() {
     } catch (error) {
       failGeneration(sessionId, getErrorMessage(error))
     }
-  }, [completeGeneration, draftTopic, failGeneration, startGeneration, status])
+  }, [completeGeneration, draftTopic, failGeneration, startGeneration, status, setSessions])
 
 return (
   <div className="relative pt-16 min-h-screen overflow-hidden bg-[#f5f0e8] text-black selection:bg-[#fce135]">
